@@ -1,206 +1,225 @@
 import React, { useState } from "react";
 import {
+  Alert,
+  FlatList,
+  Modal,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-  ScrollView,
-  SafeAreaView,
   Dimensions,
-  Modal,
-  TextInput,
 } from "react-native";
-
-const { width } = Dimensions.get("window");
 
 // --- TYPES ---
 interface NumeroSaisi {
   val: number;
+  mode: string;
+  typePartie: string;
   date: string;
 }
 
 interface Organisateur {
   id: string;
   nom: string;
+  history: NumeroSaisi[];
 }
 
+const { width } = Dimensions.get("window");
+
 export default function LotoApp() {
-  // --- ÉTATS ---
-  const [view, setView] = useState("SAISIE");
-  const [historique, setHistorique] = useState<NumeroSaisi[]>([]);
-  const [derniereBoule, setDerniereBoule] = useState("");
-  const [saisieEnCours, setSaisieEnCours] = useState("");
-  
-  // États pour les Organisateurs
+  const [view, setView] = useState<"SAISIE" | "STATS">("SAISIE");
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [modalPartieVisible, setModalPartieVisible] = useState(false);
+  const [modalAddOrgVisible, setModalAddOrgVisible] = useState(false);
+  const [modalSelectOrgVisible, setModalSelectOrgVisible] = useState(false);
+
+  const [newOrgName, setNewOrgName] = useState("");
   const [organisateurs, setOrganisateurs] = useState<Organisateur[]>([]);
-  const [modalOrgVisible, setModalOrgVisible] = useState(false);
-  const [nomOrg, setNomOrg] = useState("");
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+
+  const [currentInput, setCurrentInput] = useState("");
+  const [typePartie, setTypePartie] = useState("Quine");
+  const [history, setHistory] = useState<NumeroSaisi[]>([]);
 
   // --- FONCTIONS ---
 
-  const taperChiffre = (ch: string) => {
-    if (saisieEnCours.length < 2) setSaisieEnCours(prev => prev + ch);
-  };
-
-  const validerNumero = () => {
-    const num = parseInt(saisieEnCours);
-    if (!isNaN(num) && num >= 1 && num <= 90) {
-      const nouveau = { val: num, date: new Date().toLocaleTimeString() };
-      setHistorique([nouveau, ...historique]);
-      setDerniereBoule(num.toString());
+  const handleNumberPress = (num: string) => {
+    if (currentInput.length < 2) {
+      setCurrentInput(prev => prev + num);
     }
-    setSaisieEnCours("");
   };
 
-  // FONCTION DÉMARQUER CORRIGÉE
+  const handleValidate = () => {
+    const val = parseInt(currentInput);
+    if (isNaN(val) || val < 1 || val > 90) {
+      setCurrentInput("");
+      return;
+    }
+    const newItem: NumeroSaisi = {
+      val,
+      mode: "Manuel",
+      typePartie,
+      date: new Date().toLocaleTimeString(),
+    };
+    setHistory([newItem, ...history]);
+    setCurrentInput("");
+  };
+
+  const handleBackspace = () => {
+    setCurrentInput(prev => prev.slice(0, -1));
+  };
+
+  // LA FONCTION DÉMARQUER CORRIGÉE
   const handleDemarquer = () => {
-    setHistorique([]);
-    setDerniereBoule("");
-    setSaisieEnCours("");
+    setHistory([]);
+    setCurrentInput("");
   };
 
-  const ajouterOrganisateur = () => {
-    if (nomOrg.trim().length > 0) {
-      const newOrg = { id: Date.now().toString(), nom: nomOrg };
+  const addOrganisateur = () => {
+    if (newOrgName.trim()) {
+      const newOrg: Organisateur = {
+        id: Date.now().toString(),
+        nom: newOrgName,
+        history: [],
+      };
       setOrganisateurs([...organisateurs, newOrg]);
-      setNomOrg("");
-      setModalOrgVisible(false);
+      setNewOrgName("");
+      setModalAddOrgVisible(false);
     }
   };
 
-  // --- RENDU ---
+  const currentOrg = organisateurs.find(o => o.id === selectedOrgId);
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* MENU NAVIGATION */}
+    <View style={styles.container}>
+      {/* HEADER AVEC HISTORIQUE */}
+      <View style={styles.header}>
+        <View style={styles.statsContainer}>
+          <Text style={styles.statsLabel}>BOULES</Text>
+          <Text style={styles.statsValue}>{history.length}</Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScroll}>
+          {history.map((item, index) => (
+            <View key={index} style={styles.historyBall}>
+              <Text style={styles.historyText}>{item.val}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* ZONE CENTRALE AFFICHAGE */}
+      <View style={styles.displayArea}>
+        <View style={styles.mainBall}>
+          <Text style={styles.mainBallText}>{history[0]?.val || "--"}</Text>
+        </View>
+        <Text style={styles.inputPreview}>Saisie : {currentInput}</Text>
+      </View>
+
+      {/* CLAVIER DESIGN ORIGINAL */}
+      <View style={styles.keyboardContainer}>
+        <View style={styles.row}>
+          {["1", "2", "3"].map(n => (
+            <TouchableOpacity key={n} style={styles.key} onPress={() => handleNumberPress(n)}>
+              <Text style={styles.keyText}>{n}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.row}>
+          {["4", "5", "6"].map(n => (
+            <TouchableOpacity key={n} style={styles.key} onPress={() => handleNumberPress(n)}>
+              <Text style={styles.keyText}>{n}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.row}>
+          {["7", "8", "9"].map(n => (
+            <TouchableOpacity key={n} style={styles.key} onPress={() => handleNumberPress(n)}>
+              <Text style={styles.keyText}>{n}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.row}>
+          <TouchableOpacity style={[styles.key, styles.backKey]} onPress={handleBackspace}>
+            <Text style={styles.keyText}>⌫</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.key} onPress={() => handleNumberPress("0")}>
+            <Text style={styles.keyText}>0</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.key, styles.validKey]} onPress={handleValidate}>
+            <Text style={styles.keyText}>OK</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* BOUTON DÉMARQUER STYLE ORIGINAL */}
+      <TouchableOpacity style={styles.btnDemarquer} onPress={handleDemarquer}>
+        <Text style={styles.btnDemarquerText}>DÉMARQUER</Text>
+      </TouchableOpacity>
+
+      {/* BARRE DE NAVIGATION BASSE */}
       <View style={styles.navBar}>
-        <TouchableOpacity onPress={() => setView("SAISIE")} style={[styles.navBtn, view === "SAISIE" && styles.navBtnActive]}>
-          <Text style={styles.navText}>SAISIE</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setView("STATS")} style={[styles.navBtn, view === "STATS" && styles.navBtnActive]}>
-          <Text style={styles.navText}>STATS</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setModalOrgVisible(true)} style={styles.navBtn}>
+        <TouchableOpacity style={styles.navItem} onPress={() => setModalAddOrgVisible(true)}>
           <Text style={styles.navText}>+ ORG</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => setView("STATS")}>
+          <Text style={styles.navText}>STATS</Text>
         </TouchableOpacity>
       </View>
 
-      {view === "SAISIE" ? (
-        <>
-          {/* HEADER : HISTORIQUE */}
-          <View style={styles.header}>
-            <View style={styles.statsBox}>
-              <Text style={styles.label}>BOULES</Text>
-              <Text style={styles.valeur}>{historique.length}</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {historique.map((item, index) => (
-                <View key={index} style={styles.bouleHisto}>
-                  <Text style={styles.texteBouleHisto}>{item.val}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* AFFICHAGE CENTRAL */}
-          <View style={styles.mainDisplay}>
-            <View style={styles.cercleDernier}>
-              <Text style={styles.numeroDernier}>{derniereBoule || "--"}</Text>
-            </View>
-            <Text style={styles.texteSaisie}>Saisie : {saisieEnCours}</Text>
-          </View>
-
-          {/* CLAVIER */}
-          <View style={styles.clavier}>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, "⌫", 0, "OK"].map((touche) => (
-              <TouchableOpacity
-                key={touche.toString()}
-                style={[
-                  styles.touche,
-                  touche === "OK" ? { backgroundColor: "#27AE60" } : null,
-                  touche === "⌫" ? { backgroundColor: "#C0392B" } : null
-                ]}
-                onPress={() => {
-                  if (touche === "OK") validerNumero();
-                  else if (touche === "⌫") setSaisieEnCours(saisieEnCours.slice(0, -1));
-                  else taperChiffre(touche.toString());
-                }}
-              >
-                <Text style={styles.texteTouche}>{touche}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <TouchableOpacity style={styles.boutonDemarquer} onPress={handleDemarquer}>
-            <Text style={styles.texteBouton}>DÉMARQUER (TOUT EFFACER)</Text>
-          </TouchableOpacity>
-        </>
-      ) : (
-        /* VUE STATS */
-        <ScrollView style={styles.statsContainer}>
-          <Text style={styles.title}>Statistiques des numéros</Text>
-          {organisateurs.map(org => (
-            <View key={org.id} style={styles.orgItem}>
-              <Text style={styles.orgText}>{org.nom}</Text>
-            </View>
-          ))}
-          {historique.length === 0 && <Text style={styles.infoText}>Aucune donnée disponible</Text>}
-        </ScrollView>
-      )}
-
-      {/* MODAL AJOUT ORGANISATEUR */}
-      <Modal visible={modalOrgVisible} transparent animationType="slide">
+      {/* MODAL ORGANISATEUR */}
+      <Modal visible={modalAddOrgVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Nouvel Organisateur</Text>
-            <TextInput 
-              style={styles.input} 
-              placeholder="Nom de l'organisateur" 
-              value={nomOrg}
-              onChangeText={setNomOrg}
+            <TextInput
+              style={styles.input}
+              placeholder="Nom..."
+              value={newOrgName}
+              onChangeText={setNewOrgName}
             />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity onPress={() => setModalOrgVisible(false)} style={styles.btnCancel}><Text style={styles.btnText}>Annuler</Text></TouchableOpacity>
-              <TouchableOpacity onPress={ajouterOrganisateur} style={styles.btnSave}><Text style={styles.btnText}>Ajouter</Text></TouchableOpacity>
-            </View>
+            <TouchableOpacity style={styles.modalBtn} onPress={addOrganisateur}>
+              <Text style={styles.modalBtnText}>AJOUTER</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setModalAddOrgVisible(false)}>
+              <Text style={{marginTop: 15, color: 'red'}}>Fermer</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#2C3E50" },
-  navBar: { flexDirection: "row", backgroundColor: "#1A252F", paddingVertical: 10 },
-  navBtn: { flex: 1, alignItems: "center", padding: 10 },
-  navBtnActive: { borderBottomWidth: 3, borderBottomColor: "#F39C12" },
+  container: { flex: 1, backgroundColor: "#1B6E85" },
+  header: { flexDirection: "row", padding: 10, backgroundColor: "#0D3B46", alignItems: "center", height: 80 },
+  statsContainer: { backgroundColor: "#D4A017", padding: 8, borderRadius: 5, alignItems: "center", marginRight: 10 },
+  statsLabel: { color: "white", fontSize: 10, fontWeight: "bold" },
+  statsValue: { color: "white", fontSize: 22, fontWeight: "bold" },
+  historyScroll: { flex: 1 },
+  historyBall: { width: 40, height: 40, borderRadius: 20, backgroundColor: "white", justifyContent: "center", alignItems: "center", marginRight: 8 },
+  historyText: { color: "#1B6E85", fontWeight: "bold" },
+  displayArea: { flex: 1, justifyContent: "center", alignItems: "center" },
+  mainBall: { width: 150, height: 150, borderRadius: 75, backgroundColor: "#D4A017", justifyContent: "center", alignItems: "center", borderWidth: 4, borderColor: "white" },
+  mainBallText: { fontSize: 80, color: "white", fontWeight: "bold" },
+  inputPreview: { color: "white", fontSize: 24, marginTop: 20, fontWeight: "bold" },
+  keyboardContainer: { backgroundColor: "#D4A017", padding: 10, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  row: { flexDirection: "row", justifyContent: "center" },
+  key: { width: (width / 3) - 20, height: 60, backgroundColor: "#0D3B46", margin: 5, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+  keyText: { color: "white", fontSize: 30, fontWeight: "bold" },
+  backKey: { backgroundColor: "#A52A2A" },
+  validKey: { backgroundColor: "#2E8B57" },
+  btnDemarquer: { backgroundColor: "#A52A2A", padding: 20, alignItems: "center" },
+  btnDemarquerText: { color: "white", fontSize: 20, fontWeight: "bold" },
+  navBar: { flexDirection: "row", backgroundColor: "#0D3B46", padding: 10 },
+  navItem: { flex: 1, alignItems: "center" },
   navText: { color: "white", fontWeight: "bold" },
-  header: { flexDirection: "row", padding: 10, backgroundColor: "#1A252F", alignItems: 'center' },
-  statsBox: { backgroundColor: "#D35400", padding: 8, borderRadius: 5, marginRight: 10, alignItems: 'center', minWidth: 60 },
-  label: { color: "white", fontSize: 10 },
-  valeur: { color: "white", fontSize: 20, fontWeight: "bold" },
-  bouleHisto: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#34495E", justifyContent: "center", alignItems: "center", marginRight: 8, borderWidth: 1, borderColor: "white" },
-  texteBouleHisto: { color: "white", fontWeight: "bold" },
-  mainDisplay: { flex: 1, justifyContent: "center", alignItems: "center" },
-  cercleDernier: { width: 140, height: 140, borderRadius: 70, backgroundColor: "#16A085", justifyContent: "center", alignItems: "center", borderWidth: 4, borderColor: "white" },
-  numeroDernier: { fontSize: 80, color: "white", fontWeight: "bold" },
-  texteSaisie: { color: "#F39C12", fontSize: 26, marginTop: 20, fontWeight: "bold" },
-  clavier: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", padding: 10, backgroundColor: "#BDC3C7" },
-  touche: { width: (width / 3) - 20, height: 60, backgroundColor: "#34495E", margin: 5, borderRadius: 10, justifyContent: "center", alignItems: "center" },
-  texteTouche: { color: "white", fontSize: 28, fontWeight: "bold" },
-  boutonDemarquer: { backgroundColor: "#E74C3C", padding: 20, alignItems: "center" },
-  texteBouton: { color: "white", fontSize: 18, fontWeight: "bold" },
-  statsContainer: { padding: 20 },
-  title: { color: "white", fontSize: 22, fontWeight: "bold", marginBottom: 20 },
-  orgItem: { backgroundColor: "#34495E", padding: 15, borderRadius: 8, marginBottom: 10 },
-  orgText: { color: "white", fontSize: 16 },
-  infoText: { color: "#BDC3C7", textAlign: "center", marginTop: 50 },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", alignItems: "center" },
-  modalContent: { backgroundColor: "white", padding: 20, borderRadius: 10, width: "80%" },
-  modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 15 },
-  input: { borderBottomWidth: 1, borderColor: "#CCC", marginBottom: 20, padding: 8 },
-  modalButtons: { flexDirection: "row", justifyContent: "space-between" },
-  btnCancel: { backgroundColor: "#95A5A6", padding: 10, borderRadius: 5, flex: 0.45, alignItems: 'center' },
-  btnSave: { backgroundColor: "#27AE60", padding: 10, borderRadius: 5, flex: 0.45, alignItems: 'center' },
-  btnText: { color: "white", fontWeight: "bold" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "center", alignItems: "center" },
+  modalContent: { backgroundColor: "white", padding: 25, borderRadius: 15, width: "80%", alignItems: "center" },
+  modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 20 },
+  input: { borderBottomWidth: 2, borderColor: "#D4A017", width: "100%", marginBottom: 20, fontSize: 18, padding: 5 },
+  modalBtn: { backgroundColor: "#D4A017", padding: 12, borderRadius: 8, width: "100%", alignItems: "center" },
+  modalBtnText: { color: "white", fontWeight: "bold", fontSize: 16 },
 });
