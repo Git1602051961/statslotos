@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, Alert, TextInput, ScrollView } from 'react-native';
 
 // --- TYPES ---
@@ -92,6 +92,7 @@ export default function LotoApp() {
     setMenuVisible(false);
   };
 
+  // --- LOGIQUE STATS ---
   const getFilteredStats = (filterMode: string, specialType: 'NORMAL' | 'BINGO' | 'SUPER' = 'NORMAL') => {
     const counts: { [key: number]: number } = {};
     currentOrg.history.forEach(item => {
@@ -100,8 +101,10 @@ export default function LotoApp() {
       else if (specialType === 'BINGO') match = item.typePartie === "Bingo";
       else if (specialType === 'SUPER') match = item.typePartie === "Super";
 
-      if (match && (statPeriod === 'GLOBAL' || item.date === today)) {
-        counts[item.val] = (counts[item.val] || 0) + 1;
+      if (match) {
+        if (statPeriod === 'GLOBAL' || item.date === today) {
+          counts[item.val] = (counts[item.val] || 0) + 1;
+        }
       }
     });
     return Object.entries(counts).map(([num, count]) => ({ num: parseInt(num), count }))
@@ -121,20 +124,26 @@ export default function LotoApp() {
 
       {view === 'SAISIE' ? (
         <View style={{flex: 1}}>
+          {/* SÉLECTIONS DU HAUT - PLUS ESPACÉES */}
           <View style={styles.headerSelectionRow}>
             <TouchableOpacity style={styles.flexOne} onPress={() => setModalSelectOrgVisible(true)}>
               <Text style={styles.labelHeader}>ORGANISATEUR</Text>
               <View style={styles.whiteBox}><Text style={styles.boldText} numberOfLines={1}>{currentOrg.nom} ▾</Text></View>
             </TouchableOpacity>
+            
             <View style={{width: 12}} /> 
+
             <TouchableOpacity style={styles.flexOne} onPress={() => setModalPartieVisible(true)}>
               <Text style={styles.labelHeader}>PARTIE</Text>
               <View style={styles.partieBadge}><Text style={styles.partieBadgeText}>{selectedTypePartie} ▾</Text></View>
             </TouchableOpacity>
+
             <TouchableOpacity style={styles.plusBtn} onPress={() => setModalAddOrgVisible(true)}><Text style={{color: '#fff', fontSize: 24}}>+</Text></TouchableOpacity>
           </View>
 
+          {/* PAVÉ NUMÉRIQUE - DESIGN AÉRÉ */}
           <View style={styles.mainNumpadCard}>
+            {/* 1. BARRE HISTORIQUE */}
             <View style={styles.numHistoryBar}>
               <View style={styles.historyScrollArea}>
                 {[6, 5, 4, 3, 2, 1].map((offset) => {
@@ -154,6 +163,7 @@ export default function LotoApp() {
               </View>
             </View>
 
+            {/* 2. MODES DE JEU (Hauteur augmentée) */}
             <View style={styles.modeGrid}>
               {['Une ligne', 'Deux lignes', 'Carton plein'].map(m => (
                 <TouchableOpacity key={m} onPress={() => setMode(m)} style={[styles.modeItem, mode === m && styles.modeItemActive]}>
@@ -162,6 +172,7 @@ export default function LotoApp() {
               ))}
             </View>
 
+            {/* 3. ACTIONS (Plus de marge interne) */}
             <View style={styles.actionRow}>
               <TouchableOpacity style={styles.actionBtn} onPress={viderHistorique}>
                 <Text style={styles.actionBtnText}>🧹 Démarquer</Text>
@@ -171,16 +182,27 @@ export default function LotoApp() {
               </TouchableOpacity>
             </View>
 
+            {/* 4. GRILLE CHIFFRES (Plus haute) */}
             <View style={styles.numpadGrid}>
               <View style={styles.numbersPart}>
-                <View style={styles.keyRow}>{[1,2,3,4,5].map(n=>(<TouchableOpacity key={n} style={styles.key} onPress={()=>handlePressNumber(n.toString())}><Text style={styles.keyText}>{n}</Text></TouchableOpacity>))}</View>
-                <View style={styles.keyRow}>{[6,7,8,9,0].map(n=>(<TouchableOpacity key={n} style={styles.key} onPress={()=>handlePressNumber(n.toString())}><Text style={styles.keyText}>{n}</Text></TouchableOpacity>))}</View>
+                <View style={styles.keyRow}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <TouchableOpacity key={n} style={styles.key} onPress={() => handlePressNumber(n.toString())}><Text style={styles.keyText}>{n}</Text></TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.keyRow}>
+                  {[6, 7, 8, 9, 0].map(n => (
+                    <TouchableOpacity key={n} style={styles.key} onPress={() => handlePressNumber(n.toString())}><Text style={styles.keyText}>{n}</Text></TouchableOpacity>
+                  ))}
+                </View>
               </View>
-              <TouchableOpacity style={styles.checkBtn} onPress={()=>{if(currentInput.length===1) validerNumero(parseInt(currentInput))}}>
-                <Text style={[styles.checkIcon, currentInput.length===1 && {color:'#1B6E85'}]}>✓</Text>
+              <TouchableOpacity style={styles.checkBtn} onPress={() => { if(currentInput.length === 1) validerNumero(parseInt(currentInput)) }}>
+                <Text style={[styles.checkIcon, currentInput.length === 1 && {color: '#1B6E85'}]}>✓</Text>
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Saisie en cours plus visible */}
           <View style={styles.currentSaisieContainer}>
             {currentInput.length > 0 && <Text style={styles.currentSaisieText}>Entrée : {currentInput}</Text>}
           </View>
@@ -201,56 +223,35 @@ export default function LotoApp() {
         </ScrollView>
       )}
 
-      {/* --- MODALES AVEC BOUTONS FERMER --- */}
-
-      {/* Choix Partie */}
-      <Modal visible={modalPartieVisible} transparent animationType="fade">
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModalPartieVisible(false)}>
-          <View style={styles.modalContentLarge} onStartShouldSetResponder={() => true}>
-            <Text style={styles.titleLarge}>Choisir la Partie</Text>
-            <ScrollView contentContainerStyle={styles.gridParties}>
-              {Array.from({length:21}, (_,i)=>(i+1).toString()).map(p => (
-                <TouchableOpacity key={p} style={[styles.partSquare, selectedTypePartie === p && {backgroundColor:'#E94E31'}]} onPress={()=>{setSelectedTypePartie(p); setModalPartieVisible(false);}}><Text style={[styles.partText, selectedTypePartie === p && {color:'#fff'}]}>{p}</Text></TouchableOpacity>
-              ))}
-              {["Spéciale", "Bingo", "Super"].map(p => (
-                <TouchableOpacity key={p} style={[styles.btnSpecial, selectedTypePartie === p && {backgroundColor:'#E94E31'}]} onPress={()=>{setSelectedTypePartie(p); setModalPartieVisible(false);}}><Text style={[styles.btnSpecialText, selectedTypePartie === p && {color:'#fff'}]}>{p}</Text></TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity onPress={() => setModalPartieVisible(false)} style={styles.cancelLink}><Text style={styles.cancelLinkText}>Fermer sans changer</Text></TouchableOpacity>
-          </View>
-        </TouchableOpacity>
+      {/* --- MODALES --- */}
+      <Modal visible={modalPartieVisible} transparent>
+        <View style={styles.overlay}><View style={styles.modalContentLarge}>
+          <Text style={styles.titleLarge}>Choisir la Partie</Text>
+          <ScrollView contentContainerStyle={styles.gridParties}>
+            {Array.from({length:21}, (_,i)=>(i+1).toString()).map(p => (
+              <TouchableOpacity key={p} style={[styles.partSquare, selectedTypePartie === p && {backgroundColor:'#E94E31'}]} onPress={()=>{setSelectedTypePartie(p); setModalPartieVisible(false);}}><Text style={[styles.partText, selectedTypePartie === p && {color:'#fff'}]}>{p}</Text></TouchableOpacity>
+            ))}
+            {["Spéciale", "Bingo", "Super"].map(p => (
+              <TouchableOpacity key={p} style={[styles.btnSpecial, selectedTypePartie === p && {backgroundColor:'#E94E31'}]} onPress={()=>{setSelectedTypePartie(p); setModalPartieVisible(false);}}><Text style={[styles.btnSpecialText, selectedTypePartie === p && {color:'#fff'}]}>{p}</Text></TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View></View>
       </Modal>
 
-      {/* Ajout Organisateur */}
-      <Modal visible={modalAddOrgVisible} transparent animationType="fade">
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModalAddOrgVisible(false)}>
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-            <Text style={styles.modalTitle}>Nouvel organisateur</Text>
-            <TextInput style={styles.input} placeholder="Ex: Karine" value={newOrgName} onChangeText={setNewOrgName} autoFocus />
-            <TouchableOpacity style={styles.primaryBtn} onPress={()=>{if(!newOrgName) return; const id=Date.now().toString(); setOrganisateurs([...organisateurs,{id,nom:newOrgName,history:[]}]); setSelectedOrgId(id); setNewOrgName(''); setModalAddOrgVisible(false);}}><Text style={{color:'#fff', fontWeight: 'bold'}}>CRÉER</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => setModalAddOrgVisible(false)} style={styles.cancelLink}><Text style={styles.cancelLinkText}>Annuler</Text></TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      <Modal visible={modalAddOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}>
+        <TextInput style={styles.input} placeholder="Nom de l'organisateur" value={newOrgName} onChangeText={setNewOrgName} autoFocus />
+        <TouchableOpacity style={styles.primaryBtn} onPress={()=>{if(!newOrgName) return; const id=Date.now().toString(); setOrganisateurs([...organisateurs,{id,nom:newOrgName,history:[]}]); setSelectedOrgId(id); setNewOrgName(''); setModalAddOrgVisible(false);}}><Text style={{color:'#fff', fontWeight: 'bold'}}>CRÉER</Text></TouchableOpacity>
+      </View></View></Modal>
 
-      {/* Sélection Organisateur */}
-      <Modal visible={modalSelectOrgVisible} transparent animationType="fade">
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModalSelectOrgVisible(false)}>
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-            <Text style={styles.modalTitle}>Changer d'organisateur</Text>
-            <FlatList data={organisateurs} renderItem={({item})=>(<TouchableOpacity style={styles.orgItem} onPress={()=>{setSelectedOrgId(item.id); setModalSelectOrgVisible(false);}}><Text style={{fontSize: 16}}>{item.nom}</Text></TouchableOpacity>)} keyExtractor={item=>item.id} />
-            <TouchableOpacity onPress={() => setModalSelectOrgVisible(false)} style={styles.cancelLink}><Text style={styles.cancelLinkText}>Fermer</Text></TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      <Modal visible={modalSelectOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}>
+        <FlatList data={organisateurs} renderItem={({item})=>(<TouchableOpacity style={styles.orgItem} onPress={()=>{setSelectedOrgId(item.id); setModalSelectOrgVisible(false);}}><Text style={{fontSize: 16}}>{item.nom}</Text></TouchableOpacity>)} />
+      </View></View></Modal>
       
-      {/* Menu Options (Suppression) */}
-      <Modal visible={menuVisible} transparent animationType="fade">
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+      <Modal visible={menuVisible} transparent>
+        <TouchableOpacity style={styles.overlay} onPress={() => setMenuVisible(false)}>
+          <View style={styles.modalContent}>
             <TouchableOpacity style={styles.modalItem} onPress={supprimerOrganisateur}><Text style={{color: 'red', fontWeight: 'bold'}}>Supprimer cet organisateur</Text></TouchableOpacity>
-            <View style={{height: 1, backgroundColor: '#eee', marginVertical: 10}} />
-            <TouchableOpacity style={styles.modalItem} onPress={() => setMenuVisible(false)}><Text>Annuler</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.modalItem} onPress={() => setMenuVisible(false)}><Text>Fermer</Text></TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -268,7 +269,6 @@ const StatSection = ({ title, data, color }: any) => (
           <Text style={{fontSize:10, color:'#666', marginTop: 2}}>x{it.count}</Text>
         </View>
       ))}
-      {data.length === 0 && <Text style={{fontSize: 11, color: '#bbb'}}>Aucune donnée</Text>}
     </View>
   </View>
 );
@@ -292,7 +292,17 @@ const styles = StyleSheet.create({
   partieBadgeText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   plusBtn: { backgroundColor: '#1B4D6E', width: 48, height: 48, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginLeft: 12 },
 
-  mainNumpadCard: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#ccc', overflow: 'hidden', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  // PAVÉ NUMÉRIQUE AÉRÉ
+  mainNumpadCard: { 
+    backgroundColor: '#fff', 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: '#ccc', 
+    overflow: 'hidden',
+    elevation: 3, 
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4
+  },
+  
   numHistoryBar: { flexDirection: 'row', height: 55, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
   historyScrollArea: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingLeft: 5 },
   historySlot: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 5 },
@@ -314,7 +324,7 @@ const styles = StyleSheet.create({
   actionBtn: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: '#eee' },
   actionBtnText: { fontSize: 15, color: '#333' },
 
-  numpadGrid: { flexDirection: 'row', height: 160 },
+  numpadGrid: { flexDirection: 'row', height: 160 }, // Hauteur augmentée
   numbersPart: { flex: 1 },
   keyRow: { flexDirection: 'row', flex: 1, borderBottomWidth: 1, borderBottomColor: '#eee' },
   key: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: '#eee' },
@@ -325,17 +335,16 @@ const styles = StyleSheet.create({
   currentSaisieContainer: { height: 50, justifyContent: 'center', marginTop: 10 },
   currentSaisieText: { textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#1B6E85' },
 
+  // STATS ET MODALES
   statsContainer: { flex: 1, backgroundColor: '#fff', borderRadius: 15, padding: 20 },
   statSeparator: { height: 1, backgroundColor: '#eee', marginVertical: 20 },
   titleLarge: { fontSize: 18, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#1B4D6E' },
   periodRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
   periodBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#eee', marginHorizontal: 8 },
   periodActive: { backgroundColor: '#1B4D6E' },
-
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', width: '85%', padding: 25, borderRadius: 15 },
   modalContentLarge: { backgroundColor: '#fff', width: '90%', maxHeight: '85%', padding: 20, borderRadius: 15 },
-  modalTitle: { fontWeight: 'bold', fontSize: 18, marginBottom: 15, color: '#333' },
   gridParties: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   partSquare: { width: '18%', aspectRatio: 1, backgroundColor: '#F0F4F8', justifyContent: 'center', alignItems: 'center', marginBottom: 12, borderRadius: 8 },
   partText: { fontWeight: 'bold', fontSize: 16 },
@@ -343,8 +352,6 @@ const styles = StyleSheet.create({
   btnSpecialText: { fontSize: 12, fontWeight: 'bold' },
   input: { borderBottomWidth: 2, borderColor: '#1B4D6E', marginBottom: 25, fontSize: 18, padding: 8 },
   primaryBtn: { backgroundColor: '#1B4D6E', padding: 15, borderRadius: 10, alignItems: 'center' },
-  cancelLink: { marginTop: 20, alignSelf: 'center', padding: 10 },
-  cancelLinkText: { color: '#666', fontSize: 14, textDecorationLine: 'underline' },
   orgItem: { padding: 18, borderBottomWidth: 1, borderBottomColor: '#eee' },
   modalItem: { padding: 15, alignItems: 'center' }
 });
