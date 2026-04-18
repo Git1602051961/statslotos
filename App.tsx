@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, TextInput, ScrollView, Dimensions } from 'react-native';
 
+// --- TYPES ---
 interface NumeroSaisi {
   val: number;
   mode: string;
@@ -29,10 +30,12 @@ export default function LotoApp() {
   const [selectedTypePartie, setSelectedTypePartie] = useState('1');
   const [currentInput, setCurrentInput] = useState('');
   const [mode, setMode] = useState('Une ligne');
+  const [statPeriod, setStatPeriod] = useState<'JOUR' | 'GLOBAL'>('GLOBAL');
 
   const currentOrg = organisateurs.find(o => o.id === selectedOrgId) || organisateurs[0];
   const today = new Date().toLocaleDateString();
 
+  // --- ACTIONS ---
   const handlePressNumber = (val: string) => {
     let nextInput = currentInput + val;
     if (nextInput.length > 2) return;
@@ -72,9 +75,31 @@ export default function LotoApp() {
   };
 
   const viderHistorique = () => {
-    if (window.confirm("Vider l'historique ?")) {
+    if (window.confirm("Voulez-vous vider l'historique ?")) {
         setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? {...o, history:[]} : o));
     }
+  };
+
+  const supprimerOrganisateur = () => {
+    if (organisateurs.length <= 1) return;
+    const nouveaux = organisateurs.filter(o => o.id !== selectedOrgId);
+    setOrganisateurs(nouveaux);
+    setSelectedOrgId(nouveaux[0].id);
+    setMenuVisible(false);
+  };
+
+  // --- LOGIQUE STATS ---
+  const getFilteredStats = (filterMode: string) => {
+    const counts: { [key: number]: number } = {};
+    currentOrg.history.forEach(item => {
+      if (item.mode === filterMode) {
+        if (statPeriod === 'GLOBAL' || item.date === today) {
+          counts[item.val] = (counts[item.val] || 0) + 1;
+        }
+      }
+    });
+    return Object.entries(counts).map(([num, count]) => ({ num: parseInt(num), count }))
+      .sort((a, b) => b.count - a.count).slice(0, 10);
   };
 
   return (
@@ -90,10 +115,11 @@ export default function LotoApp() {
 
       {view === 'SAISIE' ? (
         <View style={{flex: 1}}>
+          {/* SÉLECTIONS HAUT */}
           <View style={styles.headerSelectionRow}>
             <TouchableOpacity style={styles.flexOne} onPress={() => setModalSelectOrgVisible(true)}>
               <Text style={styles.labelHeader}>ORGANISATEUR</Text>
-              <View style={styles.whiteBox}><Text style={styles.boldText}>{currentOrg.nom} ▾</Text></View>
+              <View style={styles.whiteBox}><Text style={styles.boldText} numberOfLines={1}>{currentOrg.nom} ▾</Text></View>
             </TouchableOpacity>
             <View style={{width: 10}} />
             <TouchableOpacity style={styles.flexOne} onPress={() => setModalPartieVisible(true)}>
@@ -103,30 +129,20 @@ export default function LotoApp() {
             <TouchableOpacity style={styles.plusBtn} onPress={() => setModalAddOrgVisible(true)}><Text style={{color: '#fff', fontSize: 24}}>+</Text></TouchableOpacity>
           </View>
 
+          {/* PAVÉ NUMÉRIQUE CARTE */}
           <View style={styles.mainNumpadCard}>
-            {/* BANDE BLANCHE CORRIGÉE POUR ÉVITER LE RECOUVREMENT */}
             <View style={styles.numHistoryBar}>
-              {/* Le dernier numéro à gauche (Marron) */}
               <View style={[styles.lastNumSlotSquare, currentOrg.history[0] ? styles.bgBrown : styles.bgEmpty]}>
                 <Text style={styles.historyText}>{currentOrg.history[0]?.val || ''}</Text>
               </View>
-              
-              {/* Séparateur visuel */}
               <View style={styles.separator} />
-
-              {/* L'historique suivant (Bleu) */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScrollArea}>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((offset) => {
-                  const val = currentOrg.history[offset]?.val;
-                  if (!val) return null;
-                  return (
-                    <View key={offset} style={[styles.historySlotSquare, styles.bgBlue]}>
-                      <Text style={styles.historyText}>{val}</Text>
-                    </View>
-                  );
-                })}
+                {currentOrg.history.slice(1).map((item, index) => (
+                  <View key={index} style={[styles.historySlotSquare, styles.bgBlue]}>
+                    <Text style={styles.historyText}>{item.val}</Text>
+                  </View>
+                ))}
               </ScrollView>
-
               <View style={styles.counterSection}>
                 <Text style={styles.counterText}>{currentOrg.history.length}</Text>
               </View>
@@ -141,26 +157,14 @@ export default function LotoApp() {
             </View>
 
             <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.actionBtn} onPress={viderHistorique}>
-                <Text style={styles.actionBtnText}>🧹 Démarquer</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn} onPress={handleAnnuler}>
-                <Text style={styles.actionBtnText}>⌫ Annuler</Text>
-              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionBtn} onPress={viderHistorique}><Text style={styles.actionBtnText}>🧹 Démarquer</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.actionBtn} onPress={handleAnnuler}><Text style={styles.actionBtnText}>⌫ Annuler</Text></TouchableOpacity>
             </View>
 
             <View style={styles.numpadGrid}>
               <View style={styles.numbersPart}>
-                <View style={styles.keyRow}>
-                  {[1, 2, 3, 4, 5].map(n => (
-                    <TouchableOpacity key={n} style={styles.key} onPress={() => handlePressNumber(n.toString())}><Text style={styles.keyText}>{n}</Text></TouchableOpacity>
-                  ))}
-                </View>
-                <View style={styles.keyRow}>
-                  {[6, 7, 8, 9, 0].map(n => (
-                    <TouchableOpacity key={n} style={styles.key} onPress={() => handlePressNumber(n.toString())}><Text style={styles.keyText}>{n}</Text></TouchableOpacity>
-                  ))}
-                </View>
+                <View style={styles.keyRow}>{[1,2,3,4,5].map(n=>(<TouchableOpacity key={n} style={styles.key} onPress={()=>handlePressNumber(n.toString())}><Text style={styles.keyText}>{n}</Text></TouchableOpacity>))}</View>
+                <View style={styles.keyRow}>{[6,7,8,9,0].map(n=>(<TouchableOpacity key={n} style={styles.key} onPress={()=>handlePressNumber(n.toString())}><Text style={styles.keyText}>{n}</Text></TouchableOpacity>))}</View>
               </View>
               <TouchableOpacity style={styles.checkBtn} onPress={() => { if(currentInput.length === 1) validerNumero(parseInt(currentInput)) }}>
                 <Text style={[styles.checkIcon, currentInput.length === 1 ? {color: '#1B6E85'} : {color: '#CCC'}]}>✓</Text>
@@ -171,40 +175,76 @@ export default function LotoApp() {
             {currentInput.length > 0 && <Text style={styles.currentSaisieText}>Saisie : {currentInput}</Text>}
           </View>
         </View>
-      ) : null}
-
-      {/* MODALES */}
-      <Modal visible={modalPartieVisible} transparent animationType="fade">
-        <View style={styles.overlay}>
-          <View style={styles.modalContentLarge}>
-            <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Choisir la Partie</Text>
-                <TouchableOpacity onPress={() => setModalPartieVisible(false)}><Text style={styles.closeX}>✕</Text></TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={styles.gridParties}>
-                {Array.from({length:21}, (_,i)=>(i+1).toString()).map(p => (
-                <TouchableOpacity key={p} style={[styles.partSquare, selectedTypePartie === p && {backgroundColor:'#E94E31'}]} onPress={()=>{setSelectedTypePartie(p); setModalPartieVisible(false);}}><Text style={[styles.partText, selectedTypePartie === p && {color:'#fff'}]}>{p}</Text></TouchableOpacity>
-                ))}
-            </ScrollView>
+      ) : (
+        <ScrollView style={styles.statsContainer}>
+          <Text style={styles.titleLarge}>Fréquence des numéros</Text>
+          <View style={styles.periodRow}>
+            <TouchableOpacity onPress={() => setStatPeriod('JOUR')} style={[styles.periodBtn, statPeriod === 'JOUR' && styles.periodActive]}><Text style={statPeriod === 'JOUR' && {color:'#fff'}}>Aujourd'hui</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setStatPeriod('GLOBAL')} style={[styles.periodBtn, statPeriod === 'GLOBAL' && styles.periodActive]}><Text style={statPeriod === 'GLOBAL' && {color:'#fff'}}>Historique</Text></TouchableOpacity>
           </View>
-        </View>
+          <StatSection title="TOP 1 LIGNE" data={getFilteredStats('Une ligne')} color="#1B4D6E" />
+          <StatSection title="TOP 2 LIGNES" data={getFilteredStats('Deux lignes')} color="#E94E31" />
+          <StatSection title="TOP CARTON PLEIN" data={getFilteredStats('Carton plein')} color="#6A4C93" />
+        </ScrollView>
+      )}
+
+      {/* --- MODALES --- */}
+
+      {/* Menu Principal */}
+      <Modal visible={menuVisible} transparent>
+        <TouchableOpacity style={styles.overlay} onPress={() => setMenuVisible(false)}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}><Text style={styles.modalTitle}>Menu</Text><TouchableOpacity onPress={()=>setMenuVisible(false)}><Text style={styles.closeX}>✕</Text></TouchableOpacity></View>
+            <TouchableOpacity style={styles.modalItem} onPress={supprimerOrganisateur}><Text style={{color: 'red', fontWeight: 'bold'}}>Supprimer cet organisateur</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.modalItem} onPress={() => setMenuVisible(false)}><Text>Fermer</Text></TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
-      <Modal visible={modalAddOrgVisible} transparent animationType="slide">
-        <View style={styles.overlay}>
-            <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Nouvel Organisateur</Text>
-                <TextInput style={styles.input} placeholder="Nom..." value={newOrgName} onChangeText={setNewOrgName} autoFocus />
-                <View style={styles.modalRowBtns}>
-                    <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#ccc'}]} onPress={() => setModalAddOrgVisible(false)}><Text>ANNULER</Text></TouchableOpacity>
-                    <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#1B4D6E'}]} onPress={()=>{if(!newOrgName) return; const id=Date.now().toString(); setOrganisateurs([...organisateurs,{id,nom:newOrgName,history:[]}]); setSelectedOrgId(id); setNewOrgName(''); setModalAddOrgVisible(false);}}><Text style={{color:'#fff'}}>CRÉER</Text></TouchableOpacity>
-                </View>
-            </View>
-        </View>
+      {/* Partie */}
+      <Modal visible={modalPartieVisible} transparent>
+        <View style={styles.overlay}><View style={styles.modalContentLarge}>
+          <View style={styles.modalHeader}><Text style={styles.modalTitle}>Choisir la Partie</Text><TouchableOpacity onPress={()=>setModalPartieVisible(false)}><Text style={styles.closeX}>✕</Text></TouchableOpacity></View>
+          <ScrollView contentContainerStyle={styles.gridParties}>
+            {Array.from({length:21}, (_,i)=>(i+1).toString()).map(p => (
+              <TouchableOpacity key={p} style={[styles.partSquare, selectedTypePartie === p && {backgroundColor:'#E94E31'}]} onPress={()=>{setSelectedTypePartie(p); setModalPartieVisible(false);}}><Text style={[styles.partText, selectedTypePartie === p && {color:'#fff'}]}>{p}</Text></TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View></View>
       </Modal>
+
+      {/* Ajouter Org */}
+      <Modal visible={modalAddOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Nouvel Organisateur</Text>
+        <TextInput style={styles.input} placeholder="Nom..." value={newOrgName} onChangeText={setNewOrgName} autoFocus />
+        <View style={styles.modalRowBtns}>
+            <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#ccc'}]} onPress={() => setModalAddOrgVisible(false)}><Text>ANNULER</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#1B4D6E'}]} onPress={()=>{if(!newOrgName) return; const id=Date.now().toString(); setOrganisateurs([...organisateurs,{id,nom:newOrgName,history:[]}]); setSelectedOrgId(id); setNewOrgName(''); setModalAddOrgVisible(false);}}><Text style={{color:'#fff'}}>CRÉER</Text></TouchableOpacity>
+        </View>
+      </View></View></Modal>
+
+      {/* Choisir Org */}
+      <Modal visible={modalSelectOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}>
+        <View style={styles.modalHeader}><Text style={styles.modalTitle}>Organisateurs</Text><TouchableOpacity onPress={()=>setModalSelectOrgVisible(false)}><Text style={styles.closeX}>✕</Text></TouchableOpacity></View>
+        <FlatList data={organisateurs} renderItem={({item})=>(<TouchableOpacity style={styles.orgItem} onPress={()=>{setSelectedOrgId(item.id); setModalSelectOrgVisible(false);}}><Text style={{fontSize: 16}}>{item.nom}</Text></TouchableOpacity>)} />
+      </View></View></Modal>
     </View>
   );
 }
+
+const StatSection = ({ title, data, color }: any) => (
+  <View style={{marginBottom: 20}}>
+    <Text style={{fontWeight:'bold', color, fontSize: 12, marginBottom: 8}}>{title}</Text>
+    <View style={{flexDirection:'row', flexWrap:'wrap'}}>
+      {data.map((it:any) => (
+        <View key={it.num} style={{alignItems:'center', marginRight:10, marginBottom:10}}>
+          <View style={{width:32, height:32, borderRadius:4, backgroundColor:color, justifyContent:'center', alignItems:'center'}}><Text style={{color:'#fff', fontWeight:'bold'}}>{it.num}</Text></View>
+          <Text style={{fontSize:9, color:'#666'}}>x{it.count}</Text>
+        </View>
+      ))}
+    </View>
+  </View>
+);
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#EDF2F7', paddingHorizontal: 16, paddingTop: 40 },
@@ -223,49 +263,52 @@ const styles = StyleSheet.create({
   partieBadge: { backgroundColor: '#E94E31', borderRadius: 10, height: 45, justifyContent: 'center', alignItems: 'center' },
   partieBadgeText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   plusBtn: { backgroundColor: '#1B4D6E', width: 45, height: 45, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
-
-  // BANDE BLANCHE - STRUCTURE HORIZONTALE PROPRE
   mainNumpadCard: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#ccc', overflow: 'hidden' },
   numHistoryBar: { flexDirection: 'row', height: 60, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', alignItems: 'center' },
   lastNumSlotSquare: { width: 60, height: 60, justifyContent: 'center', alignItems: 'center' },
-  separator: { width: 2, height: '70%', backgroundColor: '#eee', marginHorizontal: 5 },
-  historyScrollArea: { flex: 1, paddingVertical: 10 },
-  historySlotSquare: { width: 40, height: 40, borderRadius: 4, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
+  separator: { width: 1, height: '60%', backgroundColor: '#eee' },
+  historyScrollArea: { flex: 1, paddingVertical: 10, paddingLeft: 10 },
+  historySlotSquare: { width: 38, height: 38, borderRadius: 4, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   bgBlue: { backgroundColor: '#1B6E85' },
   bgBrown: { backgroundColor: '#A5522E' },
   bgEmpty: { backgroundColor: '#F0F4F7' },
   counterSection: { width: 50, height: 60, backgroundColor: '#F8F9FA', alignItems: 'center', justifyContent: 'center', borderLeftWidth: 1, borderLeftColor: '#eee' },
-  historyText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  counterText: { fontSize: 20, color: '#1B4D6E', fontWeight: 'bold' },
-
+  historyText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  counterText: { fontSize: 18, color: '#1B4D6E', fontWeight: 'bold' },
   modeGrid: { flexDirection: 'row', height: 60, borderBottomWidth: 1, borderBottomColor: '#eee' },
   modeItem: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: '#eee' },
   modeItemActive: { backgroundColor: '#E8F1F3' },
-  modeItemText: { fontSize: 12, color: '#555' },
+  modeItemText: { fontSize: 11, color: '#555', textAlign: 'center' },
   modeItemTextActive: { color: '#1B6E85', fontWeight: 'bold' },
   actionRow: { flexDirection: 'row', height: 50, borderBottomWidth: 1, borderBottomColor: '#eee' },
   actionBtn: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: '#eee' },
-  actionBtnText: { fontSize: 14, color: '#333' },
-  numpadGrid: { flexDirection: 'row', height: 140 },
+  actionBtnText: { fontSize: 13, color: '#333' },
+  numpadGrid: { flexDirection: 'row', height: 130 },
   numbersPart: { flex: 1 },
   keyRow: { flexDirection: 'row', flex: 1, borderBottomWidth: 1, borderBottomColor: '#eee' },
   key: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: '#eee' },
-  keyText: { fontSize: 24, color: '#333', fontWeight: 'bold' },
-  checkBtn: { width: 65, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F4F7' },
-  checkIcon: { fontSize: 35 },
-  currentSaisieContainer: { height: 40, justifyContent: 'center', marginTop: 10 },
-  currentSaisieText: { textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#1B6E85' },
-
+  keyText: { fontSize: 22, color: '#333', fontWeight: 'bold' },
+  checkBtn: { width: 60, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F4F7' },
+  checkIcon: { fontSize: 30 },
+  currentSaisieContainer: { height: 40, justifyContent: 'center', marginTop: 5 },
+  currentSaisieText: { textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: '#1B6E85' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', width: '85%', padding: 20, borderRadius: 15 },
   modalContentLarge: { backgroundColor: '#fff', width: '90%', maxHeight: '80%', padding: 20, borderRadius: 15 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   modalTitle: { fontSize: 18, fontWeight: 'bold' },
-  closeX: { fontSize: 24, color: '#999' },
+  closeX: { fontSize: 24, color: '#999', padding: 5 },
   gridParties: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   partSquare: { width: '18%', aspectRatio: 1, backgroundColor: '#F0F4F8', justifyContent: 'center', alignItems: 'center', marginBottom: 10, borderRadius: 8 },
   partText: { fontWeight: 'bold' },
   input: { borderBottomWidth: 2, borderColor: '#1B4D6E', marginBottom: 20, fontSize: 18, padding: 5 },
   modalRowBtns: { flexDirection: 'row', justifyContent: 'space-between' },
   halfBtn: { flex: 0.48, padding: 12, borderRadius: 8, alignItems: 'center' },
+  statsContainer: { flex: 1, backgroundColor: '#fff', padding: 20, borderRadius: 15 },
+  titleLarge: { fontSize: 18, fontWeight: 'bold', color: '#1B4D6E', marginBottom: 10 },
+  periodRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
+  periodBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, backgroundColor: '#eee', marginHorizontal: 5 },
+  periodActive: { backgroundColor: '#1B4D6E' },
+  orgItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  modalItem: { padding: 15, alignItems: 'center', width: '100%' },
 });
