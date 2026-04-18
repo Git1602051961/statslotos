@@ -9,32 +9,117 @@ import {
   Dimensions,
 } from "react-native";
 
-// --- TYPES ---
-interface NumeroSaisi {
-  val: number;
-  date: string;
-}
-
 const { width } = Dimensions.get("window");
 
 export default function LotoApp() {
-  const [historique, setHistorique] = useState<NumeroSaisi[]>([]);
-  const [derniereBoule, setDerniereBoule] = useState<string>("");
-  const [saisieEnCours, setSaisieEnCours] = useState<string>("");
+  // États de l'application
+  const [historique, setHistorique] = useState([]);
+  const [derniereBoule, setDerniereBoule] = useState("");
+  const [saisieEnCours, setSaisieEnCours] = useState("");
+  // La clé magique pour forcer le rafraîchissement
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // FONCTION VALIDER
+  const taperChiffre = (ch) => {
+    if (saisieEnCours.length < 2) {
+      setSaisieEnCours(prev => prev + ch);
+    }
+  };
+
   const validerNumero = () => {
     const num = parseInt(saisieEnCours);
     if (!isNaN(num) && num >= 1 && num <= 90) {
-      const nouveau: NumeroSaisi = { val: num, date: new Date().toLocaleTimeString() };
-      setHistorique([nouveau, ...historique]);
+      setHistorique(prev => [num, ...prev]);
       setDerniereBoule(num.toString());
     }
     setSaisieEnCours("");
   };
 
-  // FONCTION DÉMARQUER (Version simplifiée au maximum)
+  // FONCTION DÉMARQUER RADICALE
   const handleDemarquer = () => {
+    setHistorique([]);
+    setDerniereBoule("");
+    setSaisieEnCours("");
+    setRefreshKey(prev => prev + 1); // Force le site à se "réveiller"
+  };
+
+  return (
+    <SafeAreaView style={styles.container} key={refreshKey}>
+      {/* HEADER : COMPTEUR + HISTORIQUE */}
+      <View style={styles.header}>
+        <View style={styles.statsBox}>
+          <Text style={styles.label}>BOULES</Text>
+          <Text style={styles.valeur}>{historique.length}</Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {historique.map((val, index) => (
+            <View key={`${refreshKey}-${index}`} style={styles.bouleHisto}>
+              <Text style={styles.texteBouleHisto}>{val}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* AFFICHAGE CENTRAL */}
+      <View style={styles.mainDisplay}>
+        <View style={styles.cercleDernier}>
+          <Text style={styles.numeroDernier}>{derniereBoule || "--"}</Text>
+        </View>
+        <Text style={styles.texteSaisie}>Saisie en cours : {saisieEnCours}</Text>
+      </View>
+
+      {/* CLAVIER */}
+      <View style={styles.clavier}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, "⌫", 0, "OK"].map((touche) => (
+          <TouchableOpacity
+            key={touche}
+            style={[
+              styles.touche,
+              touche === "OK" && { backgroundColor: "#27AE60" },
+              touche === "⌫" && { backgroundColor: "#C0392B" }
+            ]}
+            onPress={() => {
+              if (touche === "OK") validerNumero();
+              else if (touche === "⌫") setSaisieEnCours(saisieEnCours.slice(0, -1));
+              else taperChiffre(touche.toString());
+            }}
+          >
+            <Text style={styles.texteTouche}>{touche}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* BOUTON DÉMARQUER - Placé de façon isolée */}
+      <View style={styles.footer}>
+        <TouchableOpacity 
+          style={styles.boutonDemarquer} 
+          onPress={handleDemarquer}
+        >
+          <Text style={styles.texteBouton}>DÉMARQUER (TOUT EFFACER)</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#2C3E50" },
+  header: { flexDirection: "row", padding: 10, backgroundColor: "#1A252F", height: 80, alignItems: 'center' },
+  statsBox: { backgroundColor: "#D35400", padding: 8, borderRadius: 5, marginRight: 10, minWidth: 60, alignItems: 'center' },
+  label: { color: "white", fontSize: 10, fontWeight: "bold" },
+  valeur: { color: "white", fontSize: 22, fontWeight: "bold" },
+  bouleHisto: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#34495E", justifyContent: "center", alignItems: "center", marginRight: 8, borderWidth: 2, borderColor: "#16A085" },
+  texteBouleHisto: { color: "white", fontWeight: "bold" },
+  mainDisplay: { flex: 1, justifyContent: "center", alignItems: "center" },
+  cercleDernier: { width: 140, height: 140, borderRadius: 70, backgroundColor: "#16A085", justifyContent: "center", alignItems: "center", borderWidth: 4, borderColor: "white" },
+  numeroDernier: { fontSize: 80, color: "white", fontWeight: "bold" },
+  texteSaisie: { color: "#F39C12", fontSize: 24, marginTop: 20, fontWeight: "bold" },
+  clavier: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", padding: 10, backgroundColor: "#BDC3C7", borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  touche: { width: (width / 3) - 20, height: 70, backgroundColor: "#34495E", margin: 5, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+  texteTouche: { color: "white", fontSize: 28, fontWeight: "bold" },
+  footer: { backgroundColor: "#1A252F", padding: 15 },
+  boutonDemarquer: { backgroundColor: "#E74C3C", padding: 20, borderRadius: 10, alignItems: "center" },
+  texteBouton: { color: "white", fontSize: 20, fontWeight: "bold" },
+});  const handleDemarquer = () => {
     setHistorique([]);
     setDerniereBoule("");
     setSaisieEnCours("");
