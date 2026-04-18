@@ -1,368 +1,4 @@
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  ScrollView,
-  SafeAreaView,
-  Dimensions,
-} from "react-native";
-
-const { width } = Dimensions.get("window");
-
-export default function LotoApp() {
-  // États de l'application
-  const [historique, setHistorique] = useState([]);
-  const [derniereBoule, setDerniereBoule] = useState("");
-  const [saisieEnCours, setSaisieEnCours] = useState("");
-  // La clé magique pour forcer le rafraîchissement
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const taperChiffre = (ch) => {
-    if (saisieEnCours.length < 2) {
-      setSaisieEnCours(prev => prev + ch);
-    }
-  };
-
-  const validerNumero = () => {
-    const num = parseInt(saisieEnCours);
-    if (!isNaN(num) && num >= 1 && num <= 90) {
-      setHistorique(prev => [num, ...prev]);
-      setDerniereBoule(num.toString());
-    }
-    setSaisieEnCours("");
-  };
-
-  // FONCTION DÉMARQUER RADICALE
-  const handleDemarquer = () => {
-    setHistorique([]);
-    setDerniereBoule("");
-    setSaisieEnCours("");
-    setRefreshKey(prev => prev + 1); // Force le site à se "réveiller"
-  };
-
-  return (
-    <SafeAreaView style={styles.container} key={refreshKey}>
-      {/* HEADER : COMPTEUR + HISTORIQUE */}
-      <View style={styles.header}>
-        <View style={styles.statsBox}>
-          <Text style={styles.label}>BOULES</Text>
-          <Text style={styles.valeur}>{historique.length}</Text>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {historique.map((val, index) => (
-            <View key={`${refreshKey}-${index}`} style={styles.bouleHisto}>
-              <Text style={styles.texteBouleHisto}>{val}</Text>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* AFFICHAGE CENTRAL */}
-      <View style={styles.mainDisplay}>
-        <View style={styles.cercleDernier}>
-          <Text style={styles.numeroDernier}>{derniereBoule || "--"}</Text>
-        </View>
-        <Text style={styles.texteSaisie}>Saisie en cours : {saisieEnCours}</Text>
-      </View>
-
-      {/* CLAVIER */}
-      <View style={styles.clavier}>
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, "⌫", 0, "OK"].map((touche) => (
-          <TouchableOpacity
-            key={touche}
-            style={[
-              styles.touche,
-              touche === "OK" && { backgroundColor: "#27AE60" },
-              touche === "⌫" && { backgroundColor: "#C0392B" }
-            ]}
-            onPress={() => {
-              if (touche === "OK") validerNumero();
-              else if (touche === "⌫") setSaisieEnCours(saisieEnCours.slice(0, -1));
-              else taperChiffre(touche.toString());
-            }}
-          >
-            <Text style={styles.texteTouche}>{touche}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* BOUTON DÉMARQUER - Placé de façon isolée */}
-      <View style={styles.footer}>
-        <TouchableOpacity 
-          style={styles.boutonDemarquer} 
-          onPress={handleDemarquer}
-        >
-          <Text style={styles.texteBouton}>DÉMARQUER (TOUT EFFACER)</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#2C3E50" },
-  header: { flexDirection: "row", padding: 10, backgroundColor: "#1A252F", height: 80, alignItems: 'center' },
-  statsBox: { backgroundColor: "#D35400", padding: 8, borderRadius: 5, marginRight: 10, minWidth: 60, alignItems: 'center' },
-  label: { color: "white", fontSize: 10, fontWeight: "bold" },
-  valeur: { color: "white", fontSize: 22, fontWeight: "bold" },
-  bouleHisto: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#34495E", justifyContent: "center", alignItems: "center", marginRight: 8, borderWidth: 2, borderColor: "#16A085" },
-  texteBouleHisto: { color: "white", fontWeight: "bold" },
-  mainDisplay: { flex: 1, justifyContent: "center", alignItems: "center" },
-  cercleDernier: { width: 140, height: 140, borderRadius: 70, backgroundColor: "#16A085", justifyContent: "center", alignItems: "center", borderWidth: 4, borderColor: "white" },
-  numeroDernier: { fontSize: 80, color: "white", fontWeight: "bold" },
-  texteSaisie: { color: "#F39C12", fontSize: 24, marginTop: 20, fontWeight: "bold" },
-  clavier: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", padding: 10, backgroundColor: "#BDC3C7", borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  touche: { width: (width / 3) - 20, height: 70, backgroundColor: "#34495E", margin: 5, borderRadius: 10, justifyContent: "center", alignItems: "center" },
-  texteTouche: { color: "white", fontSize: 28, fontWeight: "bold" },
-  footer: { backgroundColor: "#1A252F", padding: 15 },
-  boutonDemarquer: { backgroundColor: "#E74C3C", padding: 20, borderRadius: 10, alignItems: "center" },
-  texteBouton: { color: "white", fontSize: 20, fontWeight: "bold" },
-});  const handleDemarquer = () => {
-    setHistorique([]);
-    setDerniereBoule("");
-    setSaisieEnCours("");
-  };
-
-  const taperChiffre = (ch) => {
-    if (saisieEnCours.length < 2) setSaisieEnCours(prev => prev + ch);
-  };
-
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* HEADER : COMPTEUR + HISTORIQUE */}
-      <View style={styles.header}>
-        <View style={styles.statsBox}>
-          <Text style={styles.label}>BOULES</Text>
-          <Text style={styles.valeur}>{historique.length}</Text>
-        </View>
-        <ScrollView horizontal style={{flexDirection: 'row'}}>
-          {historique.map((item, index) => (
-            <View key={index} style={styles.bouleHisto}>
-              <Text style={styles.texteBouleHisto}>{item.val}</Text>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* AFFICHAGE CENTRAL */}
-      <View style={styles.mainDisplay}>
-        <View style={styles.cercleDernier}>
-          <Text style={styles.numeroDernier}>{derniereBoule || "--"}</Text>
-        </View>
-        <Text style={styles.texteSaisie}>Saisie : {saisieEnCours}</Text>
-      </View>
-
-      {/* CLAVIER */}
-      <View style={styles.clavier}>
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, "⌫", 0, "OK"].map((touche) => (
-          <TouchableOpacity
-            key={touche}
-            style={[
-              styles.touche,
-              touche === "OK" && { backgroundColor: "#27AE60" },
-              touche === "⌫" && { backgroundColor: "#C0392B" }
-            ]}
-            onPress={() => {
-              if (touche === "OK") validerNumero();
-              else if (touche === "⌫") setSaisieEnCours(saisieEnCours.slice(0, -1));
-              else taperChiffre(touche.toString());
-            }}
-          >
-            <Text style={styles.texteTouche}>{touche}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* BOUTON DÉMARQUER - Placé tout en bas avec un style bien distinct */}
-      <TouchableOpacity 
-        style={styles.boutonDemarquer} 
-        onPress={handleDemarquer}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.texteBouton}>TOUT EFFACER (DÉMARQUER)</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#2C3E50" },
-  header: { flexDirection: "row", padding: 10, backgroundColor: "#1A252F", height: 80, alignItems: 'center' },
-  statsBox: { backgroundColor: "#D35400", padding: 8, borderRadius: 5, marginRight: 10 },
-  label: { color: "white", fontSize: 10 },
-  valeur: { color: "white", fontSize: 18, fontWeight: "bold" },
-  bouleHisto: { width: 35, height: 35, borderRadius: 18, backgroundColor: "#34495E", justifyContent: "center", alignItems: "center", marginRight: 5, borderWidth: 1, borderColor: "white" },
-  texteBouleHisto: { color: "white", fontSize: 14 },
-  mainDisplay: { flex: 1, justifyContent: "center", alignItems: "center" },
-  cercleDernier: { width: 130, height: 130, borderRadius: 65, backgroundColor: "#16A085", justifyContent: "center", alignItems: "center", borderWidth: 4, borderColor: "white", borderStyle: "dashed" },
-  numeroDernier: { fontSize: 70, color: "white", fontWeight: "bold" },
-  texteSaisie: { color: "white", fontSize: 22, marginTop: 15 },
-  clavier: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", padding: 5, backgroundColor: "#F39C12" },
-  touche: { width: (width / 3) - 15, height: 60, backgroundColor: "#34495E", margin: 5, borderRadius: 8, justifyContent: "center", alignItems: "center" },
-  texteTouche: { color: "white", fontSize: 24, fontWeight: "bold" },
-  boutonDemarquer: { backgroundColor: "#E74C3C", padding: 20, width: '100%', alignItems: "center", borderTopWidth: 2, borderColor: 'white' },
-  texteBouton: { color: "white", fontSize: 18, fontWeight: "bold" },
-});                styles.periodBtn,
-                statPeriod === "GLOBAL" && styles.periodActive,
-              ]}
-            >
-              <Text style={statPeriod === "GLOBAL" && { color: "#fff" }}>
-                Historique
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <StatSection
-            title="TOP 1 LIGNE"
-            data={getFilteredStats("Une ligne", "NORMAL")}
-            color="#1B4D6E"
-          />
-          <StatSection
-            title="TOP 2 LIGNES"
-            data={getFilteredStats("Deux lignes", "NORMAL")}
-            color="#E94E31"
-          />
-          <StatSection
-            title="TOP CARTON PLEIN"
-            data={getFilteredStats("Carton plein", "NORMAL")}
-            color="#6A4C93"
-          />
-          <View style={styles.statSeparator} />
-          <StatSection
-            title="TOP BINGO"
-            data={getFilteredStats("", "BINGO")}
-            color="#DAA520"
-          />
-          <StatSection
-            title="TOP SUPER"
-            data={getFilteredStats("", "SUPER")}
-            color="#2E8B57"
-          />
-        </ScrollView>
-      )}
-
-      {/* --- MODALES AVEC BOUTONS FERMER --- */}
-
-      {/* Choix Partie */}
-      <Modal visible={modalPartieVisible} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={() => setModalPartieVisible(false)}
-        >
-          <View
-            style={styles.modalContentLarge}
-            onStartShouldSetResponder={() => true}
-          >
-            <Text style={styles.titleLarge}>Choisir la Partie</Text>
-            <ScrollView contentContainerStyle={styles.gridParties}>
-              {Array.from({ length: 21 }, (_, i) => (i + 1).toString()).map(
-                (p) => (
-                  <TouchableOpacity
-                    key={p}
-                    style={[
-                      styles.partSquare,
-                      selectedTypePartie === p && {
-                        backgroundColor: "#E94E31",
-                      },
-                    ]}
-                    onPress={() => {
-                      setSelectedTypePartie(p);
-                      setModalPartieVisible(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.partText,
-                        selectedTypePartie === p && { color: "#fff" },
-                      ]}
-                    >
-                      {p}
-                    </Text>
-                  </TouchableOpacity>
-                ),
-              )}
-              {["Spéciale", "Bingo", "Super"].map((p) => (
-                <TouchableOpacity
-                  key={p}
-                  style={[
-                    styles.btnSpecial,
-                    selectedTypePartie === p && { backgroundColor: "#E94E31" },
-                  ]}
-                  onPress={() => {
-                    setSelectedTypePartie(p);
-                    setModalPartieVisible(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.btnSpecialText,
-                      selectedTypePartie === p && { color: "#fff" },
-                    ]}
-                  >
-                    {p}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity
-              onPress={() => setModalPartieVisible(false)}
-              style={styles.cancelLink}
-            >
-              <Text style={styles.cancelLinkText}>Fermer sans changer</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Ajout Organisateur */}
-      <Modal visible={modalAddOrgVisible} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={() => setModalAddOrgVisible(false)}
-        >
-          <View
-            style={styles.modalContent}
-            onStartShouldSetResponder={() => true}
-          >
-            <Text style={styles.modalTitle}>Nouvel organisateur</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex: Karine"
-              value={newOrgName}
-              onChangeText={setNewOrgName}
-              autoFocus
-            />
-            <TouchableOpacity
-              style={styles.primaryBtn}
-              onPress={() => {
-                if (!newOrgName) return;
-                const id = Date.now().toString();
-                setOrganisateurs([
-                  ...organisateurs,
-                  { id, nom: newOrgName, history: [] },
-                ]);
-                setSelectedOrgId(id);
-                setNewOrgName("");
-                setModalAddOrgVisible(false);
-              }}
-            >
-              <Text style={{ color: "#fff", fontWeight: "bold" }}>CRÉER</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setModalAddOrgVisible(false)}
-              style={styles.cancelLink}
-            >
-              <Text style={styles.cancelLinkText}>Annuler</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Sélection Organisateur */}
-      <Modal visible={modalSelectOrgVisible} transparent animationType="fade">
+OrgVisible} transparent animationType="fade">
         <TouchableOpacity
           style={styles.overlay}
           activeOpacity={1}
@@ -996,3 +632,126 @@ const styles = StyleSheet.create({
   },
   texteBouton: { color: "white", fontSize: 20, fontWeight: "bold" },
 });
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ScrollView,
+  SafeAreaView,
+  Dimensions,
+} from "react-native";
+
+const { width } = Dimensions.get("window");
+
+export default function LotoApp() {
+  const [historique, setHistorique] = useState([]);
+  const [derniereBoule, setDerniereBoule] = useState("");
+  const [saisieEnCours, setSaisieEnCours] = useState("");
+
+  const taperChiffre = (ch) => {
+    if (saisieEnCours.length < 2) {
+      setSaisieEnCours(prev => prev + ch);
+    }
+  };
+
+  const validerNumero = () => {
+    const num = parseInt(saisieEnCours);
+    if (!isNaN(num) && num >= 1 && num <= 90) {
+      setHistorique(prev => [num, ...prev]);
+      setDerniereBoule(num.toString());
+    }
+    setSaisieEnCours("");
+  };
+
+  // FONCTION DÉMARQUER : On réinitialise tout proprement
+  const handleDemarquer = () => {
+    setHistorique([]);
+    setDerniereBoule("");
+    setSaisieEnCours("");
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* BANDEAU HISTORIQUE */}
+      <View style={styles.header}>
+        <View style={styles.statsBox}>
+          <Text style={styles.label}>BOULES</Text>
+          <Text style={styles.valeur}>{historique.length}</Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {historique.map((val, index) => (
+            <View key={index} style={styles.bouleHisto}>
+              <Text style={styles.texteBouleHisto}>{val}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* AFFICHAGE DU DERNIER NUMÉRO ET SAISIE */}
+      <View style={styles.mainDisplay}>
+        <View style={styles.cercleDernier}>
+          <Text style={styles.numeroDernier}>{derniereBoule || "--"}</Text>
+        </View>
+        <Text style={styles.texteSaisie}>Saisie : {saisieEnCours}</Text>
+      </View>
+
+      {/* CLAVIER NUMÉRIQUE */}
+      <View style={styles.clavier}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, "⌫", 0, "OK"].map((touche) => (
+          <TouchableOpacity
+            key={touche}
+            style={[
+              styles.touche,
+              touche === "OK" ? { backgroundColor: "#27AE60" } : null,
+              touche === "⌫" ? { backgroundColor: "#C0392B" } : null
+            ]}
+            onPress={() => {
+              if (touche === "OK") validerNumero();
+              else if (touche === "⌫") setSaisieEnCours(saisieEnCours.slice(0, -1));
+              else taperChiffre(touche.toString());
+            }}
+          >
+            <Text style={styles.texteTouche}>{touche}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* BOUTON DÉMARQUER - GROS ET ROUGE */}
+      <TouchableOpacity 
+        style={styles.boutonDemarquer} 
+        onPress={handleDemarquer}
+      >
+        <Text style={styles.texteBouton}>DÉMARQUER (TOUT EFFACER)</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#2C3E50" },
+  header: { flexDirection: "row", padding: 10, backgroundColor: "#1A252F", alignItems: 'center' },
+  statsBox: { backgroundColor: "#D35400", padding: 8, borderRadius: 5, marginRight: 10, alignItems: 'center' },
+  label: { color: "white", fontSize: 10 },
+  valeur: { color: "white", fontSize: 20, fontWeight: "bold" },
+  bouleHisto: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#34495E", justifyContent: "center", alignItems: "center", marginRight: 8, borderWidth: 1, borderColor: "white" },
+  texteBouleHisto: { color: "white", fontWeight: "bold" },
+  mainDisplay: { flex: 1, justifyContent: "center", alignItems: "center" },
+  cercleDernier: { width: 140, height: 140, borderRadius: 70, backgroundColor: "#16A085", justifyContent: "center", alignItems: "center", borderWidth: 4, borderColor: "white" },
+  numeroDernier: { fontSize: 80, color: "white", fontWeight: "bold" },
+  texteSaisie: { color: "#F39C12", fontSize: 26, marginTop: 20, fontWeight: "bold" },
+  clavier: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", padding: 10, backgroundColor: "#BDC3C7" },
+  touche: { width: (width / 3) - 20, height: 70, backgroundColor: "#34495E", margin: 5, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+  texteTouche: { color: "white", fontSize: 30, fontWeight: "bold" },
+  boutonDemarquer: { backgroundColor: "#E74C3C", padding: 25, alignItems: "center" },
+  texteBouton: { color: "white", fontSize: 22, fontWeight: "bold" },
+});
+Pourquoi ça va marcher cette fois ?
+Correction de l'erreur : J'ai supprimé le bloc style={[styles.checkIcon, ...]} qui causait l'erreur "Expected ] but found ,".
+
+Syntaxe simplifiée : J'utilise des conditions "ternaires" (touche === "OK" ? ... : null) qui sont beaucoup plus stables pour Vercel.
+
+Démarquer isolé : Le bouton est bien séparé et utilise une fonction simple qui vide les 3 variables d'état (historique, dernier numéro, saisie).
+
+Action : Copie tout ce code, remplace celui dans ton App.tsx sur GitHub, et valide. L'erreur de déploiement devrait disparaître et ton bouton Démarquer sera enfin opérationnel !
