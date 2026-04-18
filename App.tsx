@@ -1,324 +1,4 @@
-import React, { useState } from "react";
-import {
-  Alert,
-  FlatList,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-
-// --- TYPES ---
-interface NumeroSaisi {
-  val: number;
-  mode: string;
-  typePartie: string;
-  date: string;
-}
-
-interface Organisateur {
-  id: string;
-  nom: string;
-  history: NumeroSaisi[];
-}
-
-export default function LotoApp() {
-  const [view, setView] = useState<"SAISIE" | "STATS">("SAISIE");
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [modalPartieVisible, setModalPartieVisible] = useState(false);
-  const [modalAddOrgVisible, setModalAddOrgVisible] = useState(false);
-  const [modalSelectOrgVisible, setModalSelectOrgVisible] = useState(false);
-
-  const [newOrgName, setNewOrgName] = useState("");
-  const [organisateurs, setOrganisateurs] = useState<Organisateur[]>([
-    { id: "1", nom: "Karine", history: [] },
-  ]);
-  const [selectedOrgId, setSelectedOrgId] = useState("1");
-  const [selectedTypePartie, setSelectedTypePartie] = useState("1");
-  const [currentInput, setCurrentInput] = useState("");
-  const [mode, setMode] = useState("Une ligne");
-  const [statPeriod, setStatPeriod] = useState<"JOUR" | "GLOBAL">("GLOBAL");
-
-  const currentOrg =
-    organisateurs.find((o) => o.id === selectedOrgId) || organisateurs[0];
-  const today = new Date().toLocaleDateString();
-
-  // --- ACTIONS ---
-  const handlePressNumber = (val: string) => {
-    let nextInput = currentInput + val;
-    if (nextInput.length > 2) return;
-    if (nextInput.length === 2) {
-      const num = parseInt(nextInput);
-      if (num >= 1 && num <= 90) validerNumero(num);
-      else {
-        Alert.alert("Erreur", "Le numéro doit être entre 1 et 90");
-        setCurrentInput("");
-      }
-    } else {
-      setCurrentInput(nextInput);
-    }
-  };
-
-  const validerNumero = (num: number) => {
-    setOrganisateurs((prev) =>
-      prev.map((org) => {
-        if (org.id === selectedOrgId) {
-          const nouveau: NumeroSaisi = {
-            val: num,
-            mode,
-            typePartie: selectedTypePartie,
-            date: today,
-          };
-          return { ...org, history: [nouveau, ...org.history] };
-        }
-        return org;
-      }),
-    );
-    setCurrentInput("");
-  };
-
-  const handleAnnuler = () => {
-    if (currentInput.length > 0) {
-      setCurrentInput("");
-    } else {
-      setOrganisateurs((prev) =>
-        prev.map((org) => {
-          if (org.id === selectedOrgId && org.history.length > 0) {
-            const newHistory = [...org.history];
-            newHistory.shift();
-            return { ...org, history: newHistory };
-          }
-          return org;
-        }),
-      );
-    }
-  };
-
-  const viderHistorique = () => {
-    Alert.alert("Démarquer", "Voulez-vous vider l'historique ?", [
-      { text: "Non" },
-      {
-        text: "Oui",
-        onPress: () =>
-          setOrganisateurs((prev) =>
-            prev.map((o) =>
-              o.id === selectedOrgId ? { ...o, history: [] } : o,
-            ),
-          ),
-      },
-    ]);
-  };
-
-  const supprimerOrganisateur = () => {
-    if (organisateurs.length <= 1) return;
-    const nouveaux = organisateurs.filter((o) => o.id !== selectedOrgId);
-    setOrganisateurs(nouveaux);
-    setSelectedOrgId(nouveaux[0].id);
-    setMenuVisible(false);
-  };
-
-  const getFilteredStats = (
-    filterMode: string,
-    specialType: "NORMAL" | "BINGO" | "SUPER" = "NORMAL",
-  ) => {
-    const counts: { [key: number]: number } = {};
-    currentOrg.history.forEach((item) => {
-      let match = false;
-      if (specialType === "NORMAL")
-        match =
-          item.mode === filterMode &&
-          item.typePartie !== "Bingo" &&
-          item.typePartie !== "Super";
-      else if (specialType === "BINGO") match = item.typePartie === "Bingo";
-      else if (specialType === "SUPER") match = item.typePartie === "Super";
-
-      if (match && (statPeriod === "GLOBAL" || item.date === today)) {
-        counts[item.val] = (counts[item.val] || 0) + 1;
-      }
-    });
-    return Object.entries(counts)
-      .map(([num, count]) => ({ num: parseInt(num), count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-  };
-
-  return (
-    <View style={styles.container}>
-      {/* NAVIGATION TABS */}
-      <View style={styles.topNav}>
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            onPress={() => setView("SAISIE")}
-            style={[styles.tabBtn, view === "SAISIE" && styles.tabActive]}
-          >
-            <Text
               style={[
-                styles.tabText,
-                view === "SAISIE" && styles.tabTextActive,
-              ]}
-            >
-              SAISIE
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setView("STATS")}
-            style={[styles.tabBtn, view === "STATS" && styles.tabActive]}
-          >
-            <Text
-              style={[styles.tabText, view === "STATS" && styles.tabTextActive]}
-            >
-              STATS
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => setMenuVisible(true)}
-        >
-          <Text style={{ fontSize: 22 }}>≡</Text>
-        </TouchableOpacity>
-      </View>
-
-      {view === "SAISIE" ? (
-        <View style={{ flex: 1 }}>
-          <View style={styles.headerSelectionRow}>
-            <TouchableOpacity
-              style={styles.flexOne}
-              onPress={() => setModalSelectOrgVisible(true)}
-            >
-              <Text style={styles.labelHeader}>ORGANISATEUR</Text>
-              <View style={styles.whiteBox}>
-                <Text style={styles.boldText} numberOfLines={1}>
-                  {currentOrg.nom} ▾
-                </Text>
-              </View>
-            </TouchableOpacity>
-            <View style={{ width: 12 }} />
-            <TouchableOpacity
-              style={styles.flexOne}
-              onPress={() => setModalPartieVisible(true)}
-            >
-              <Text style={styles.labelHeader}>PARTIE</Text>
-              <View style={styles.partieBadge}>
-                <Text style={styles.partieBadgeText}>
-                  {selectedTypePartie} ▾
-                </Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.plusBtn}
-              onPress={() => setModalAddOrgVisible(true)}
-            >
-              <Text style={{ color: "#fff", fontSize: 24 }}>+</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.mainNumpadCard}>
-            <View style={styles.numHistoryBar}>
-              <View style={styles.historyScrollArea}>
-                {[6, 5, 4, 3, 2, 1].map((offset) => {
-                  const val = currentOrg.history[offset]?.val;
-                  return (
-                    <View
-                      key={offset}
-                      style={[
-                        styles.historySlot,
-                        val ? styles.bgBlue : styles.bgEmpty,
-                      ]}
-                    >
-                      <Text style={styles.historyText}>{val || ""}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-              <View
-                style={[
-                  styles.lastNumSlot,
-                  currentOrg.history[0] ? styles.bgBrown : styles.bgEmpty,
-                ]}
-              >
-                <Text style={styles.historyText}>
-                  {currentOrg.history[0]?.val || ""}
-                </Text>
-              </View>
-              <View style={styles.counterSection}>
-                <Text style={styles.counterText}>
-                  {currentOrg.history.filter((h) => h.date === today).length}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.modeGrid}>
-              {["Une ligne", "Deux lignes", "Carton plein"].map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  onPress={() => setMode(m)}
-                  style={[styles.modeItem, mode === m && styles.modeItemActive]}
-                >
-                  <Text
-                    style={[
-                      styles.modeItemText,
-                      mode === m && styles.modeItemTextActive,
-                    ]}
-                  >
-                    {m.toLowerCase()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={viderHistorique}
-              >
-                <Text style={styles.actionBtnText}>🧹 Démarquer</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={handleAnnuler}
-              >
-                <Text style={styles.actionBtnText}>⌫ Annuler</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.numpadGrid}>
-              <View style={styles.numbersPart}>
-                <View style={styles.keyRow}>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <TouchableOpacity
-                      key={n}
-                      style={styles.key}
-                      onPress={() => handlePressNumber(n.toString())}
-                    >
-                      <Text style={styles.keyText}>{n}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <View style={styles.keyRow}>
-                  {[6, 7, 8, 9, 0].map((n) => (
-                    <TouchableOpacity
-                      key={n}
-                      style={styles.key}
-                      onPress={() => handlePressNumber(n.toString())}
-                    >
-                      <Text style={styles.keyText}>{n}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-              <TouchableOpacity
-                style={styles.checkBtn}
-                onPress={() => {
-                  if (currentInput.length === 1)
-                    validerNumero(parseInt(currentInput));
-                }}
-              >
-                <Text
-                  style={[
                     styles.checkIcon,
                     currentInput.length === 1 && { color: "#1B6E85" },
                   ]}
@@ -920,4 +600,229 @@ const styles = StyleSheet.create({
   },
   orgItem: { padding: 18, borderBottomWidth: 1, borderBottomColor: "#eee" },
   modalItem: { padding: 15, alignItems: "center" },
+});
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ScrollView,
+  SafeAreaView,
+  Dimensions,
+} from "react-native";
+
+// --- TYPES ---
+interface NumeroSaisi {
+  val: number;
+  date: string;
+}
+
+const { width } = Dimensions.get("window");
+
+export default function LotoApp() {
+  // --- ÉTATS (STATES) ---
+  const [historique, setHistorique] = useState<NumeroSaisi[]>([]);
+  const [derniereBoule, setDerniereBoule] = useState<string>("");
+  const [saisieEnCours, setSaisieEnCours] = useState<string>("");
+
+  // --- FONCTIONS ---
+
+  // Ajouter un chiffre (clavier numérique)
+  const taperChiffre = (chiffre: string) => {
+    if (saisieEnCours.length < 2) {
+      setSaisieEnCours((prev) => prev + chiffre);
+    }
+  };
+
+  // Valider le numéro saisi
+  const validerNumero = () => {
+    const num = parseInt(saisieEnCours);
+    if (isNaN(num) || num < 1 || num > 90) {
+      alert("Numéro invalide (doit être entre 1 et 90)");
+      setSaisieEnCours("");
+      return;
+    }
+
+    const nouveau : NumeroSaisi = {
+      val: num,
+      date: new Date().toLocaleTimeString(),
+    };
+
+    setHistorique([nouveau, ...historique]);
+    setDerniereBoule(num.toString());
+    setSaisieEnCours("");
+  };
+
+  // EFFACER / DÉMARQUER (La fonction qui buggait)
+  const handleDemarquer = () => {
+    // Utilisation de confirm pour le web/mobile
+    const confirmer = window.confirm("Voulez-vous vraiment vider l'historique ?");
+    if (confirmer) {
+      setHistorique([]);
+      setDerniereBoule("");
+      setSaisieEnCours("");
+    }
+  };
+
+  // Supprimer un seul chiffre (touche retour)
+  const effacerDernierChiffre = () => {
+    setSaisieEnCours((prev) => prev.slice(0, -1));
+  };
+
+  // --- RENDU ---
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* ZONE DU HAUT : HISTORIQUE ET COMPTEUR */}
+      <View style={styles.header}>
+        <View style={styles.statsBox}>
+          <Text style={styles.label}>BOULES</Text>
+          <Text style={styles.valeur}>{historique.length}</Text>
+        </View>
+        <ScrollView style={styles.scrollHistorique} horizontal={true}>
+          {historique.map((item, index) => (
+            <View key={index} style={styles.bouleHisto}>
+              <Text style={styles.texteBouleHisto}>{item.val}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* ZONE CENTRALE : DERNIER NUMÉRO */}
+      <View style={styles.mainDisplay}>
+        <View style={styles.cercleDernier}>
+          <Text style={styles.numeroDernier}>{derniereBoule || "--"}</Text>
+        </View>
+        <View style={styles.saisieBox}>
+          <Text style={styles.texteSaisie}>Saisie : {saisieEnCours}</Text>
+        </View>
+      </View>
+
+      {/* CLAVIER NUMÉRIQUE */}
+      <View style={styles.clavier}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+          <TouchableOpacity 
+            key={num} 
+            style={styles.touche} 
+            onPress={() => taperChiffre(num.toString())}
+          >
+            <Text style={styles.texteTouche}>{num}</Text>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity style={styles.toucheEffacer} onPress={effacerDernierChiffre}>
+          <Text style={styles.texteTouche}>⌫</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.touche} onPress={() => taperChiffre("0")}>
+          <Text style={styles.texteTouche}>0</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.toucheValider} onPress={validerNumero}>
+          <Text style={styles.texteTouche}>OK</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* BOUTON DÉMARQUER */}
+      <TouchableOpacity style={styles.boutonDemarquer} onPress={handleDemarquer}>
+        <Text style={styles.texteBouton}>DÉMARQUER</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
+  );
+}
+
+// --- STYLES ---
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#2C3E50", // Bleu foncé/gris
+  },
+  header: {
+    flexDirection: "row",
+    padding: 15,
+    backgroundColor: "#1A252F",
+    alignItems: "center",
+  },
+  statsBox: {
+    backgroundColor: "#D35400", // Marron/Orange
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    marginRight: 10,
+  },
+  label: { color: "white", fontSize: 10, fontWeight: "bold" },
+  valeur: { color: "white", fontSize: 20, fontWeight: "bold" },
+  scrollHistorique: { flex: 1 },
+  bouleHisto: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#34495E",
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: "#BDC3C7",
+  },
+  texteBouleHisto: { color: "white", fontWeight: "bold" },
+  mainDisplay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cercleDernier: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "#16A085", // Bleu canard
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 5,
+    borderColor: "white",
+    borderStyle: "dashed",
+  },
+  numeroDernier: { fontSize: 80, color: "white", fontWeight: "bold" },
+  saisieBox: { marginTop: 20 },
+  texteSaisie: { color: "white", fontSize: 24, fontWeight: "bold" },
+  clavier: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    padding: 10,
+    backgroundColor: "#F39C12", // Jaune orangé pour le socle
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  touche: {
+    width: width / 4,
+    height: 60,
+    backgroundColor: "#34495E",
+    margin: 5,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 3,
+  },
+  toucheValider: {
+    width: width / 4,
+    height: 60,
+    backgroundColor: "#27AE60",
+    margin: 5,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  toucheEffacer: {
+    width: width / 4,
+    height: 60,
+    backgroundColor: "#C0392B",
+    margin: 5,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  texteTouche: { color: "white", fontSize: 25, fontWeight: "bold" },
+  boutonDemarquer: {
+    backgroundColor: "#C0392B",
+    padding: 15,
+    alignItems: "center",
+  },
+  texteBouton: { color: "white", fontSize: 20, fontWeight: "bold" },
 });
