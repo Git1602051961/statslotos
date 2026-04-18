@@ -16,7 +16,6 @@ interface Organisateur {
 }
 
 export default function LotoApp() {
-  // --- ÉTATS ---
   const [view, setView] = useState<'SAISIE' | 'STATS'>('SAISIE');
   const [menuVisible, setMenuVisible] = useState(false);
   const [modalPartieVisible, setModalPartieVisible] = useState(false);
@@ -24,9 +23,7 @@ export default function LotoApp() {
   const [modalSelectOrgVisible, setModalSelectOrgVisible] = useState(false);
   
   const [newOrgName, setNewOrgName] = useState('');
-  const [organisateurs, setOrganisateurs] = useState<Organisateur[]>([
-    { id: '1', nom: 'Karine', history: [] }
-  ]);
+  const [organisateurs, setOrganisateurs] = useState<Organisateur[]>([{ id: '1', nom: 'Karine', history: [] }]);
   const [selectedOrgId, setSelectedOrgId] = useState('1');
   const [selectedTypePartie, setSelectedTypePartie] = useState('1');
   const [currentInput, setCurrentInput] = useState('');
@@ -44,9 +41,7 @@ export default function LotoApp() {
       const num = parseInt(nextInput);
       if (num >= 1 && num <= 90) validerNumero(num);
       else setCurrentInput('');
-    } else { 
-      setCurrentInput(nextInput); 
-    }
+    } else { setCurrentInput(nextInput); }
   };
 
   const validerNumero = (num: number) => {
@@ -59,7 +54,6 @@ export default function LotoApp() {
     setCurrentInput('');
   };
 
-  // FIX DÉMARQUER : Utilisation de confirm() compatible Web/Mobile
   const viderHistorique = () => {
     if (confirm("Voulez-vous vraiment vider l'historique ?")) {
       setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, history: [] } : o));
@@ -67,9 +61,8 @@ export default function LotoApp() {
   };
 
   const handleAnnuler = () => {
-    if (currentInput.length > 0) { 
-      setCurrentInput(''); 
-    } else {
+    if (currentInput.length > 0) { setCurrentInput(''); } 
+    else {
       setOrganisateurs(prev => prev.map(org => {
         if (org.id === selectedOrgId && org.history.length > 0) {
           const newHistory = [...org.history];
@@ -81,14 +74,19 @@ export default function LotoApp() {
     }
   };
 
-  // --- LOGIQUE DES 6 CARTONS DISPOSITION RÉELLE ---
-  const getStatsForCartons = () => {
+  // --- LOGIQUE CUMULATIVE DES STATS ---
+  const getStatsCumulees = () => {
     const counts: { [key: number]: number } = {};
+    
     currentOrg.history.forEach(item => {
       if (statPeriod === 'GLOBAL' || item.date === today) {
+        // Règle cumulative :
+        // Si on cherche pour le carton, tout compte.
+        // Ici on pondère pour favoriser les numéros qui sortent souvent peu importe le mode
         counts[item.val] = (counts[item.val] || 0) + 1;
       }
     });
+
     return Object.entries(counts)
       .map(([num, count]) => ({ num: parseInt(num), count }))
       .sort((a, b) => b.count - a.count)
@@ -110,8 +108,8 @@ export default function LotoApp() {
   };
 
   const renderCartonStats = (index: number, color: string) => {
-    const allStats = getStatsForCartons();
-    const cartonData = generateLotoGrid(allStats.slice(index * 3));
+    const allStats = getStatsCumulees();
+    const cartonData = generateLotoGrid(allStats.slice(index * 3)); // Décale pour varier les 6 cartons
 
     return (
       <View key={index} style={[styles.cartonStatsCard, { borderColor: color }]}>
@@ -131,7 +129,6 @@ export default function LotoApp() {
 
   return (
     <View style={styles.container}>
-      {/* HEADER TABS D'ORIGINE */}
       <View style={styles.topNav}>
         <View style={styles.tabContainer}>
           <TouchableOpacity onPress={() => setView('SAISIE')} style={[styles.tabBtn, view === 'SAISIE' && styles.tabActive]}><Text style={[styles.tabText, view === 'SAISIE' && styles.tabTextActive]}>SAISIE</Text></TouchableOpacity>
@@ -142,7 +139,6 @@ export default function LotoApp() {
 
       {view === 'SAISIE' ? (
         <View style={{flex: 1}}>
-          {/* SÉLECTEURS D'ORIGINE */}
           <View style={styles.headerSelectionRow}>
             <TouchableOpacity style={styles.flexOne} onPress={() => setModalSelectOrgVisible(true)}>
               <Text style={styles.labelHeader}>ORGANISATEUR</Text>
@@ -156,7 +152,6 @@ export default function LotoApp() {
             <TouchableOpacity style={styles.plusBtn} onPress={() => setModalAddOrgVisible(true)}><Text style={{color: '#fff', fontSize: 24}}>+</Text></TouchableOpacity>
           </View>
 
-          {/* PAVÉ NUMÉRIQUE DESIGN ORIGINAL */}
           <View style={styles.mainNumpadCard}>
             <View style={styles.numHistoryBar}>
               <View style={[styles.lastNumSlotSquare, currentOrg.history[0] ? styles.bgBrown : styles.bgEmpty]}>
@@ -198,7 +193,7 @@ export default function LotoApp() {
         </View>
       ) : (
         <ScrollView style={styles.statsScroll}>
-          <Text style={styles.titleStats}>Mes 6 Cartons Idéaux</Text>
+          <Text style={styles.titleStats}>Mes 6 Cartons Idéaux (Stats Cumulées)</Text>
           <View style={styles.periodRow}>
             <TouchableOpacity onPress={() => setStatPeriod('JOUR')} style={[styles.periodBtn, statPeriod === 'JOUR' && styles.periodActive]}><Text style={statPeriod === 'JOUR' && {color:'#fff'}}>Aujourd'hui</Text></TouchableOpacity>
             <TouchableOpacity onPress={() => setStatPeriod('GLOBAL')} style={[styles.periodBtn, statPeriod === 'GLOBAL' && styles.periodActive]}><Text style={statPeriod === 'GLOBAL' && {color:'#fff'}}>Historique</Text></TouchableOpacity>
@@ -211,7 +206,7 @@ export default function LotoApp() {
         </ScrollView>
       )}
 
-      {/* MODALES D'ORIGINE */}
+      {/* MODALES */}
       <Modal visible={modalAddOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}>
         <Text style={styles.modalTitle}>Nouveau</Text>
         <TextInput style={styles.input} placeholder="Nom..." value={newOrgName} onChangeText={setNewOrgName} autoFocus />
@@ -233,7 +228,6 @@ export default function LotoApp() {
 }
 
 const styles = StyleSheet.create({
-  // --- STYLE GÉNÉRAL ET SAISIE (ORIGINAL) ---
   container: { flex: 1, backgroundColor: '#EDF2F7', paddingHorizontal: 16, paddingTop: 40 },
   topNav: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   tabContainer: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 4, flex: 1, marginRight: 10 },
@@ -278,8 +272,6 @@ const styles = StyleSheet.create({
   checkBtn: { width: 60, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F4F7' },
   checkIcon: { fontSize: 30 },
   currentSaisieText: { textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#1B6E85', marginTop: 10 },
-
-  // --- STYLE STATS (REVISITÉ DISPOSITION LOTO) ---
   statsScroll: { flex: 1, padding: 10 },
   titleStats: { fontSize: 18, fontWeight: 'bold', color: '#1B4D6E', textAlign: 'center', marginVertical: 10 },
   cartonStatsCard: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 20, borderWidth: 1, overflow: 'hidden' },
@@ -291,8 +283,6 @@ const styles = StyleSheet.create({
   periodRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 15 },
   periodBtn: { padding: 8, paddingHorizontal: 15, borderRadius: 15, backgroundColor: '#ddd', marginHorizontal: 5 },
   periodActive: { backgroundColor: '#1B4D6E' },
-
-  // --- MODALES ---
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', padding: 20, borderRadius: 15, width: '85%' },
   modalContentLarge: { backgroundColor: '#fff', width: '90%', padding: 20, borderRadius: 15 },
