@@ -1,40 +1,125 @@
-              style={[
-                    styles.checkIcon,
-                    currentInput.length === 1 && { color: "#1B6E85" },
-                  ]}
-                >
-                  ✓
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.currentSaisieContainer}>
-            {currentInput.length > 0 && (
-              <Text style={styles.currentSaisieText}>
-                Entrée : {currentInput}
-              </Text>
-            )}
-          </View>
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ScrollView,
+  SafeAreaView,
+  Dimensions,
+} from "react-native";
+
+// --- TYPES ---
+interface NumeroSaisi {
+  val: number;
+  date: string;
+}
+
+const { width } = Dimensions.get("window");
+
+export default function LotoApp() {
+  const [historique, setHistorique] = useState<NumeroSaisi[]>([]);
+  const [derniereBoule, setDerniereBoule] = useState<string>("");
+  const [saisieEnCours, setSaisieEnCours] = useState<string>("");
+
+  // FONCTION VALIDER
+  const validerNumero = () => {
+    const num = parseInt(saisieEnCours);
+    if (!isNaN(num) && num >= 1 && num <= 90) {
+      const nouveau: NumeroSaisi = { val: num, date: new Date().toLocaleTimeString() };
+      setHistorique([nouveau, ...historique]);
+      setDerniereBoule(num.toString());
+    }
+    setSaisieEnCours("");
+  };
+
+  // FONCTION DÉMARQUER (Version simplifiée au maximum)
+  const handleDemarquer = () => {
+    setHistorique([]);
+    setDerniereBoule("");
+    setSaisieEnCours("");
+  };
+
+  const taperChiffre = (ch) => {
+    if (saisieEnCours.length < 2) setSaisieEnCours(prev => prev + ch);
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* HEADER : COMPTEUR + HISTORIQUE */}
+      <View style={styles.header}>
+        <View style={styles.statsBox}>
+          <Text style={styles.label}>BOULES</Text>
+          <Text style={styles.valeur}>{historique.length}</Text>
         </View>
-      ) : (
-        <ScrollView style={styles.statsContainer}>
-          <Text style={styles.titleLarge}>Fréquence des numéros</Text>
-          <View style={styles.periodRow}>
-            <TouchableOpacity
-              onPress={() => setStatPeriod("JOUR")}
-              style={[
-                styles.periodBtn,
-                statPeriod === "JOUR" && styles.periodActive,
-              ]}
-            >
-              <Text style={statPeriod === "JOUR" && { color: "#fff" }}>
-                Aujourd'hui
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setStatPeriod("GLOBAL")}
-              style={[
-                styles.periodBtn,
+        <ScrollView horizontal style={{flexDirection: 'row'}}>
+          {historique.map((item, index) => (
+            <View key={index} style={styles.bouleHisto}>
+              <Text style={styles.texteBouleHisto}>{item.val}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* AFFICHAGE CENTRAL */}
+      <View style={styles.mainDisplay}>
+        <View style={styles.cercleDernier}>
+          <Text style={styles.numeroDernier}>{derniereBoule || "--"}</Text>
+        </View>
+        <Text style={styles.texteSaisie}>Saisie : {saisieEnCours}</Text>
+      </View>
+
+      {/* CLAVIER */}
+      <View style={styles.clavier}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, "⌫", 0, "OK"].map((touche) => (
+          <TouchableOpacity
+            key={touche}
+            style={[
+              styles.touche,
+              touche === "OK" && { backgroundColor: "#27AE60" },
+              touche === "⌫" && { backgroundColor: "#C0392B" }
+            ]}
+            onPress={() => {
+              if (touche === "OK") validerNumero();
+              else if (touche === "⌫") setSaisieEnCours(saisieEnCours.slice(0, -1));
+              else taperChiffre(touche.toString());
+            }}
+          >
+            <Text style={styles.texteTouche}>{touche}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* BOUTON DÉMARQUER - Placé tout en bas avec un style bien distinct */}
+      <TouchableOpacity 
+        style={styles.boutonDemarquer} 
+        onPress={handleDemarquer}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.texteBouton}>TOUT EFFACER (DÉMARQUER)</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#2C3E50" },
+  header: { flexDirection: "row", padding: 10, backgroundColor: "#1A252F", height: 80, alignItems: 'center' },
+  statsBox: { backgroundColor: "#D35400", padding: 8, borderRadius: 5, marginRight: 10 },
+  label: { color: "white", fontSize: 10 },
+  valeur: { color: "white", fontSize: 18, fontWeight: "bold" },
+  bouleHisto: { width: 35, height: 35, borderRadius: 18, backgroundColor: "#34495E", justifyContent: "center", alignItems: "center", marginRight: 5, borderWidth: 1, borderColor: "white" },
+  texteBouleHisto: { color: "white", fontSize: 14 },
+  mainDisplay: { flex: 1, justifyContent: "center", alignItems: "center" },
+  cercleDernier: { width: 130, height: 130, borderRadius: 65, backgroundColor: "#16A085", justifyContent: "center", alignItems: "center", borderWidth: 4, borderColor: "white", borderStyle: "dashed" },
+  numeroDernier: { fontSize: 70, color: "white", fontWeight: "bold" },
+  texteSaisie: { color: "white", fontSize: 22, marginTop: 15 },
+  clavier: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", padding: 5, backgroundColor: "#F39C12" },
+  touche: { width: (width / 3) - 15, height: 60, backgroundColor: "#34495E", margin: 5, borderRadius: 8, justifyContent: "center", alignItems: "center" },
+  texteTouche: { color: "white", fontSize: 24, fontWeight: "bold" },
+  boutonDemarquer: { backgroundColor: "#E74C3C", padding: 20, width: '100%', alignItems: "center", borderTopWidth: 2, borderColor: 'white' },
+  texteBouton: { color: "white", fontSize: 18, fontWeight: "bold" },
+});                styles.periodBtn,
                 statPeriod === "GLOBAL" && styles.periodActive,
               ]}
             >
