@@ -298,7 +298,7 @@ export default function LotoApp() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#EDF2F7' },
-  appHeader: { backgroundColor: '#1B4D6E', paddingTop: 45, paddingBottom: 15, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 4 },
+  appHeader: { backgroundColor: '#1B4D6E', paddingTop: 45, paddingBottom: 45, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 4 },
   headerTitleContainer: { justifyContent: 'center' },
   appTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 1 },
   appSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 1, textTransform: 'capitalize' },
