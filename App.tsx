@@ -12,7 +12,8 @@ interface NumeroSaisi {
 interface Organisateur {
   id: string;
   nom: string;
-  history: NumeroSaisi[];
+  currentSeance: NumeroSaisi[]; // Tirages de la session en cours
+  archives: NumeroSaisi[];      // Historique total pour les stats globales
 }
 
 export default function LotoApp() {
@@ -23,7 +24,9 @@ export default function LotoApp() {
   const [modalSelectOrgVisible, setModalSelectOrgVisible] = useState(false);
   
   const [newOrgName, setNewOrgName] = useState('');
-  const [organisateurs, setOrganisateurs] = useState<Organisateur[]>([{ id: '1', nom: 'Karine', history: [] }]);
+  const [organisateurs, setOrganisateurs] = useState<Organisateur[]>([
+    { id: '1', nom: 'Karine', currentSeance: [], archives: [] }
+  ]);
   const [selectedOrgId, setSelectedOrgId] = useState('1');
   const [selectedTypePartie, setSelectedTypePartie] = useState('1');
   const [currentInput, setCurrentInput] = useState('');
@@ -47,16 +50,43 @@ export default function LotoApp() {
   const validerNumero = (num: number) => {
     setOrganisateurs(prev => prev.map(org => {
       if (org.id === selectedOrgId) {
-        return { ...org, history: [{ val: num, mode, typePartie: selectedTypePartie, date: today }, ...org.history] };
+        return { ...org, currentSeance: [{ val: num, mode, typePartie: selectedTypePartie, date: today }, ...org.currentSeance] };
       }
       return org;
     }));
     setCurrentInput('');
   };
 
+  // FONCTION DÉMARQUER (Efface la partie en cours)
   const viderHistorique = () => {
-    if (confirm("Voulez-vous vraiment vider l'historique ?")) {
-      setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, history: [] } : o));
+    if (confirm("Effacer les numéros de la partie en cours ?")) {
+      setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o));
+    }
+  };
+
+  // FONCTION CLÔTURER (Archive la journée et vide le plateau)
+  const cloturerJournee = () => {
+    if (confirm("Clôturer la journée ? Cela enregistrera les numéros dans les stats globales.")) {
+      setOrganisateurs(prev => prev.map(org => {
+        if (org.id === selectedOrgId) {
+          return { ...org, archives: [...org.currentSeance, ...org.archives], currentSeance: [] };
+        }
+        return org;
+      }));
+    }
+  };
+
+  // FONCTION SUPPRIMER ORGANISATEUR (Supprime tout : historique, stats, nom)
+  const supprimerOrganisateur = () => {
+    if (organisateurs.length <= 1) {
+      alert("Impossible de supprimer le dernier organisateur.");
+      return;
+    }
+    if (confirm(`Supprimer définitivement ${currentOrg.nom} ainsi que toutes ses statistiques ?`)) {
+      const nouveaux = organisateurs.filter(o => o.id !== selectedOrgId);
+      setOrganisateurs(nouveaux);
+      setSelectedOrgId(nouveaux[0].id);
+      setMenuVisible(false);
     }
   };
 
@@ -64,29 +94,21 @@ export default function LotoApp() {
     if (currentInput.length > 0) { setCurrentInput(''); } 
     else {
       setOrganisateurs(prev => prev.map(org => {
-        if (org.id === selectedOrgId && org.history.length > 0) {
-          const newHistory = [...org.history];
+        if (org.id === selectedOrgId && org.currentSeance.length > 0) {
+          const newHistory = [...org.currentSeance];
           newHistory.shift();
-          return { ...org, history: newHistory };
+          return { ...org, currentSeance: newHistory };
         }
         return org;
       }));
     }
   };
 
-  // --- LOGIQUE CUMULATIVE DES STATS ---
+  // --- LOGIQUE STATS ---
   const getStatsCumulees = () => {
     const counts: { [key: number]: number } = {};
-    
-    currentOrg.history.forEach(item => {
-      if (statPeriod === 'GLOBAL' || item.date === today) {
-        // Règle cumulative :
-        // Si on cherche pour le carton, tout compte.
-        // Ici on pondère pour favoriser les numéros qui sortent souvent peu importe le mode
-        counts[item.val] = (counts[item.val] || 0) + 1;
-      }
-    });
-
+    const source = statPeriod === 'JOUR' ? currentOrg.currentSeance : [...currentOrg.currentSeance, ...currentOrg.archives];
+    source.forEach(item => { counts[item.val] = (counts[item.val] || 0) + 1; });
     return Object.entries(counts)
       .map(([num, count]) => ({ num: parseInt(num), count }))
       .sort((a, b) => b.count - a.count)
@@ -109,8 +131,7 @@ export default function LotoApp() {
 
   const renderCartonStats = (index: number, color: string) => {
     const allStats = getStatsCumulees();
-    const cartonData = generateLotoGrid(allStats.slice(index * 3)); // Décale pour varier les 6 cartons
-
+    const cartonData = generateLotoGrid(allStats.slice(index * 3));
     return (
       <View key={index} style={[styles.cartonStatsCard, { borderColor: color }]}>
         <View style={[styles.cartonStatsHeader, {backgroundColor: color}]}>
@@ -118,7 +139,7 @@ export default function LotoApp() {
         </View>
         <View style={styles.cartonStatsGrid}>
           {cartonData.map((num, i) => (
-            <View key={i} style={[styles.cartonStatsCell, num && { backgroundColor: color + '20' }]}>
+            <View key={i} style={[styles.cartonStatsCell, num && { backgroundColor: color + '15' }]}>
               <Text style={[styles.cartonStatsCellText, num && { color: color }]}>{num || ''}</Text>
             </View>
           ))}
@@ -154,16 +175,16 @@ export default function LotoApp() {
 
           <View style={styles.mainNumpadCard}>
             <View style={styles.numHistoryBar}>
-              <View style={[styles.lastNumSlotSquare, currentOrg.history[0] ? styles.bgBrown : styles.bgEmpty]}>
-                <Text style={styles.historyText}>{currentOrg.history[0]?.val || ''}</Text>
+              <View style={[styles.lastNumSlotSquare, currentOrg.currentSeance[0] ? styles.bgBrown : styles.bgEmpty]}>
+                <Text style={styles.historyText}>{currentOrg.currentSeance[0]?.val || ''}</Text>
               </View>
               <View style={styles.separator} />
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScrollArea}>
-                {currentOrg.history.slice(1).map((item, index) => (
+                {currentOrg.currentSeance.slice(1).map((item, index) => (
                   <View key={index} style={[styles.historySlotSquare, styles.bgBlue]}><Text style={styles.historyText}>{item.val}</Text></View>
                 ))}
               </ScrollView>
-              <View style={styles.counterSection}><Text style={styles.counterText}>{currentOrg.history.length}</Text></View>
+              <View style={styles.counterSection}><Text style={styles.counterText}>{currentOrg.currentSeance.length}</Text></View>
             </View>
 
             <View style={styles.modeGrid}>
@@ -177,6 +198,7 @@ export default function LotoApp() {
             <View style={styles.actionRow}>
               <TouchableOpacity style={styles.actionBtn} onPress={handleAnnuler}><Text style={styles.actionBtnText}>⌫ Annuler</Text></TouchableOpacity>
               <TouchableOpacity style={styles.actionBtn} onPress={viderHistorique}><Text style={styles.actionBtnText}>🧹 Démarquer</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.actionBtn, {backgroundColor: '#1B4D6E'}]} onPress={cloturerJournee}><Text style={[styles.actionBtnText, {color: '#fff'}]}>📁 Clôturer</Text></TouchableOpacity>
             </View>
 
             <View style={styles.numpadGrid}>
@@ -193,12 +215,11 @@ export default function LotoApp() {
         </View>
       ) : (
         <ScrollView style={styles.statsScroll}>
-          <Text style={styles.titleStats}>Mes 6 Cartons Idéaux (Stats Cumulées)</Text>
+          <Text style={styles.titleStats}>Mes 6 Cartons Idéaux</Text>
           <View style={styles.periodRow}>
-            <TouchableOpacity onPress={() => setStatPeriod('JOUR')} style={[styles.periodBtn, statPeriod === 'JOUR' && styles.periodActive]}><Text style={statPeriod === 'JOUR' && {color:'#fff'}}>Aujourd'hui</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => setStatPeriod('GLOBAL')} style={[styles.periodBtn, statPeriod === 'GLOBAL' && styles.periodActive]}><Text style={statPeriod === 'GLOBAL' && {color:'#fff'}}>Historique</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setStatPeriod('JOUR')} style={[styles.periodBtn, statPeriod === 'JOUR' && styles.periodActive]}><Text style={statPeriod === 'JOUR' && {color:'#fff'}}>Journée en cours</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setStatPeriod('GLOBAL')} style={[styles.periodBtn, statPeriod === 'GLOBAL' && styles.periodActive]}><Text style={statPeriod === 'GLOBAL' && {color:'#fff'}}>Global (Historique)</Text></TouchableOpacity>
           </View>
-
           {['#E94E31', '#1B6E85', '#6A4C93', '#2E7D32', '#F9A825', '#C2185B'].map((color, i) => (
             renderCartonStats(i, color)
           ))}
@@ -206,23 +227,29 @@ export default function LotoApp() {
         </ScrollView>
       )}
 
-      {/* MODALES */}
+      {/* MODALE MENU POUR SUPPRIMER ORGANISATEUR */}
+      <Modal visible={menuVisible} transparent>
+        <TouchableOpacity style={styles.overlay} onPress={() => setMenuVisible(false)}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity style={styles.modalItem} onPress={supprimerOrganisateur}><Text style={{color: 'red', fontWeight: 'bold'}}>Supprimer cet organisateur</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.modalItem} onPress={() => setMenuVisible(false)}><Text>Fermer</Text></TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* MODALES D'ORIGINE (Ajout / Sélection) */}
       <Modal visible={modalAddOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}>
         <Text style={styles.modalTitle}>Nouveau</Text>
         <TextInput style={styles.input} placeholder="Nom..." value={newOrgName} onChangeText={setNewOrgName} autoFocus />
         <View style={styles.modalRowBtns}>
             <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#ccc'}]} onPress={() => setModalAddOrgVisible(false)}><Text>ANNULER</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#1B4D6E'}]} onPress={()=>{if(!newOrgName) return; const id=Date.now().toString(); setOrganisateurs([...organisateurs,{id,nom:newOrgName,history:[]}]); setSelectedOrgId(id); setNewOrgName(''); setModalAddOrgVisible(false);}}><Text style={{color:'#fff'}}>CRÉER</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#1B4D6E'}]} onPress={()=>{if(!newOrgName) return; const id=Date.now().toString(); setOrganisateurs([...organisateurs,{id,nom:newOrgName,currentSeance:[],archives:[]}]); setSelectedOrgId(id); setNewOrgName(''); setModalAddOrgVisible(false);}}><Text style={{color:'#fff'}}>CRÉER</Text></TouchableOpacity>
         </View>
       </View></View></Modal>
       
-      <Modal visible={modalPartieVisible} transparent><View style={styles.overlay}><View style={styles.modalContentLarge}>
-          <ScrollView contentContainerStyle={styles.gridParties}>
-            {Array.from({length:21}, (_,i)=>(i+1).toString()).map(p => (
-              <TouchableOpacity key={p} style={[styles.partSquare, selectedTypePartie === p && {backgroundColor:'#E94E31'}]} onPress={()=>{setSelectedTypePartie(p); setModalPartieVisible(false);}}><Text style={[styles.partText, selectedTypePartie === p && {color:'#fff'}]}>{p}</Text></TouchableOpacity>
-            ))}
-          </ScrollView>
-      </View></View></Modal>
+      <Modal visible={modalSelectOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}><FlatList data={organisateurs} renderItem={({item})=>(<TouchableOpacity style={styles.orgItem} onPress={()=>{setSelectedOrgId(item.id); setModalSelectOrgVisible(false);}}><Text>{item.nom}</Text></TouchableOpacity>)} /></View></View></Modal>
+
+      <Modal visible={modalPartieVisible} transparent><View style={styles.overlay}><View style={styles.modalContentLarge}><ScrollView contentContainerStyle={styles.gridParties}>{Array.from({length:21}, (_,i)=>(i+1).toString()).map(p => (<TouchableOpacity key={p} style={[styles.partSquare, selectedTypePartie === p && {backgroundColor:'#E94E31'}]} onPress={()=>{setSelectedTypePartie(p); setModalPartieVisible(false);}}><Text style={[styles.partText, selectedTypePartie === p && {color:'#fff'}]}>{p}</Text></TouchableOpacity>))}</ScrollView></View></View></Modal>
     </View>
   );
 }
@@ -263,7 +290,7 @@ const styles = StyleSheet.create({
   modeItemTextActive: { color: '#1B6E85', fontWeight: 'bold' },
   actionRow: { flexDirection: 'row', height: 50, borderTopWidth: 1, borderColor: '#eee' },
   actionBtn: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderColor: '#eee' },
-  actionBtnText: { fontSize: 13 },
+  actionBtnText: { fontSize: 12, textAlign: 'center' },
   numpadGrid: { flexDirection: 'row', borderTopWidth: 1, borderColor: '#eee' },
   numbersPart: { flex: 1 },
   keyRow: { flexDirection: 'row' },
@@ -271,7 +298,7 @@ const styles = StyleSheet.create({
   keyText: { fontSize: 22, fontWeight: 'bold' },
   checkBtn: { width: 60, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F4F7' },
   checkIcon: { fontSize: 30 },
-  currentSaisieText: { textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#1B6E85', marginTop: 10 },
+  currentSaisieText: { textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#1B4D6E', marginTop: 10 },
   statsScroll: { flex: 1, padding: 10 },
   titleStats: { fontSize: 18, fontWeight: 'bold', color: '#1B4D6E', textAlign: 'center', marginVertical: 10 },
   cartonStatsCard: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 20, borderWidth: 1, overflow: 'hidden' },
@@ -292,4 +319,6 @@ const styles = StyleSheet.create({
   input: { borderBottomWidth: 1, marginBottom: 20, padding: 5 },
   modalRowBtns: { flexDirection: 'row', justifyContent: 'space-between' },
   halfBtn: { width: '48%', padding: 12, borderRadius: 10, alignItems: 'center' },
+  modalItem: { padding: 15, alignItems: 'center', borderBottomWidth: 1, borderColor: '#eee' },
+  orgItem: { padding: 15, borderBottomWidth: 1, borderColor: '#eee' },
 });
