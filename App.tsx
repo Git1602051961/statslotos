@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, TextInput, ScrollView, StatusBar } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- TYPES ---
 interface NumeroSaisi {
@@ -37,38 +36,24 @@ export default function LotoApp() {
   const currentOrg = organisateurs.find(o => o.id === selectedOrgId) || organisateurs[0];
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // --- PERSISTANCE DES DONNÉES (AsyncStorage) ---
-
-  // 1. Charger les données au démarrage
+  // --- SAUVEGARDE VIA LOCALSTORAGE (SANS INSTALLATION) ---
   useEffect(() => {
-    const loadData = async () => {
+    const loadData = () => {
       try {
-        const savedData = await AsyncStorage.getItem('@toploto_data');
-        const savedId = await AsyncStorage.getItem('@toploto_selected_id');
-        if (savedData) {
-          setOrganisateurs(JSON.parse(savedData));
-        }
-        if (savedId) {
-          setSelectedOrgId(savedId);
-        }
-      } catch (e) {
-        console.error("Erreur de chargement", e);
-      }
+        const savedData = localStorage.getItem('@toploto_data');
+        const savedId = localStorage.getItem('@toploto_selected_id');
+        if (savedData) setOrganisateurs(JSON.parse(savedData));
+        if (savedId) setSelectedOrgId(savedId);
+      } catch (e) { console.error("Erreur chargement", e); }
     };
     loadData();
   }, []);
 
-  // 2. Sauvegarder dès que 'organisateurs' ou 'selectedOrgId' change
   useEffect(() => {
-    const saveData = async () => {
-      try {
-        await AsyncStorage.setItem('@toploto_data', JSON.stringify(organisateurs));
-        await AsyncStorage.setItem('@toploto_selected_id', selectedOrgId);
-      } catch (e) {
-        console.error("Erreur de sauvegarde", e);
-      }
-    };
-    saveData();
+    try {
+      localStorage.setItem('@toploto_data', JSON.stringify(organisateurs));
+      localStorage.setItem('@toploto_selected_id', selectedOrgId);
+    } catch (e) { console.error("Erreur sauvegarde", e); }
   }, [organisateurs, selectedOrgId]);
 
   // --- ACTIONS ---
@@ -93,13 +78,13 @@ export default function LotoApp() {
   };
 
   const viderHistorique = () => {
-    if (confirm("Voulez-vous vraiment démarquer ? (Vider la partie en cours)")) {
+    if (window.confirm("Voulez-vous vraiment démarquer ?")) {
       setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o));
     }
   };
 
   const cloturerJournee = () => {
-    if (confirm("Voulez-vous clôturer cette journée et l'ajouter aux statistiques globales ?")) {
+    if (window.confirm("Voulez-vous clôturer cette journée ?")) {
       setOrganisateurs(prev => prev.map(org => {
         if (org.id === selectedOrgId) {
           return { ...org, archives: [...org.currentSeance, ...org.archives], currentSeance: [] };
@@ -125,7 +110,7 @@ export default function LotoApp() {
 
   const supprimerOrganisateur = () => {
     if (organisateurs.length <= 1) return;
-    if (confirm(`Supprimer définitivement ${currentOrg.nom} ?`)) {
+    if (window.confirm(`Supprimer ${currentOrg.nom} ?`)) {
       const nouveaux = organisateurs.filter(o => o.id !== selectedOrgId);
       setOrganisateurs(nouveaux);
       setSelectedOrgId(nouveaux[0].id);
@@ -181,7 +166,6 @@ export default function LotoApp() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1B4D6E" />
       
-      {/* HEADER */}
       <View style={styles.appHeader}>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.appTitle}>TOPLOTO 🍀</Text>
@@ -270,7 +254,6 @@ export default function LotoApp() {
         )}
       </View>
 
-      {/* MODALES */}
       <Modal visible={menuVisible} transparent>
         <TouchableOpacity style={styles.overlay} onPress={() => setMenuVisible(false)}>
           <View style={styles.modalContent}>
@@ -298,7 +281,7 @@ export default function LotoApp() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#EDF2F7' },
-  appHeader: { backgroundColor: '#1B4D6E', paddingTop: 45, paddingBottom: 45, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 4 },
+  appHeader: { backgroundColor: '#1B4D6E', paddingTop: 45, paddingBottom: 15, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 4 },
   headerTitleContainer: { justifyContent: 'center' },
   appTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 1 },
   appSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 1, textTransform: 'capitalize' },
