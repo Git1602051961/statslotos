@@ -90,7 +90,7 @@ export default function LotoApp() {
 
   const supprimerOrganisateur = () => {
     if (organisateurs.length <= 1) return;
-    if (confirm(`Supprimer définitivement ${currentOrg.nom} et tout son historique ?`)) {
+    if (confirm(`Supprimer définitivement ${currentOrg.nom} ?`)) {
       const nouveaux = organisateurs.filter(o => o.id !== selectedOrgId);
       setOrganisateurs(nouveaux);
       setSelectedOrgId(nouveaux[0].id);
@@ -146,9 +146,9 @@ export default function LotoApp() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1B4D6E" />
       
-      {/* HEADER */}
+      {/* HEADER AJUSTÉ : Titre centré verticalement, pas d'arrondis en bas */}
       <View style={styles.appHeader}>
-        <View>
+        <View style={styles.headerTitleContainer}>
           <Text style={styles.appTitle}>TOPLOTO 🍀</Text>
           <Text style={styles.appSubtitle}>{today}</Text>
         </View>
@@ -263,10 +263,24 @@ export default function LotoApp() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#EDF2F7' },
-  appHeader: { backgroundColor: '#1B4D6E', paddingTop: 50, paddingBottom: 20, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  appTitle: { color: '#fff', fontSize: 22, fontWeight: '900', letterSpacing: 1 },
-  appSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 },
+  // MODIFICATIONS HEADER
+  appHeader: { 
+    backgroundColor: '#1B4D6E', 
+    paddingTop: 45, // Ajustement pour la barre de statut
+    paddingBottom: 15, 
+    paddingHorizontal: 20, 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', // Centre verticalement les éléments du header
+    elevation: 4
+  },
+  headerTitleContainer: {
+    justifyContent: 'center' // Centre verticalement le texte interne
+  },
+  appTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 1 },
+  appSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 1, textTransform: 'capitalize' },
   menuIconBtn: { padding: 5 },
+  
   contentPadding: { flex: 1, paddingHorizontal: 16 },
   topNav: { marginVertical: 15 },
   tabContainer: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#D1D9E0' },
