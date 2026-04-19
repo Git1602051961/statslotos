@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, TextInput, ScrollView, StatusBar } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- TYPES ---
 interface NumeroSaisi {
@@ -35,6 +36,40 @@ export default function LotoApp() {
 
   const currentOrg = organisateurs.find(o => o.id === selectedOrgId) || organisateurs[0];
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  // --- PERSISTANCE DES DONNÉES (AsyncStorage) ---
+
+  // 1. Charger les données au démarrage
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const savedData = await AsyncStorage.getItem('@toploto_data');
+        const savedId = await AsyncStorage.getItem('@toploto_selected_id');
+        if (savedData) {
+          setOrganisateurs(JSON.parse(savedData));
+        }
+        if (savedId) {
+          setSelectedOrgId(savedId);
+        }
+      } catch (e) {
+        console.error("Erreur de chargement", e);
+      }
+    };
+    loadData();
+  }, []);
+
+  // 2. Sauvegarder dès que 'organisateurs' ou 'selectedOrgId' change
+  useEffect(() => {
+    const saveData = async () => {
+      try {
+        await AsyncStorage.setItem('@toploto_data', JSON.stringify(organisateurs));
+        await AsyncStorage.setItem('@toploto_selected_id', selectedOrgId);
+      } catch (e) {
+        console.error("Erreur de sauvegarde", e);
+      }
+    };
+    saveData();
+  }, [organisateurs, selectedOrgId]);
 
   // --- ACTIONS ---
   const handlePressNumber = (val: string) => {
@@ -146,7 +181,7 @@ export default function LotoApp() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1B4D6E" />
       
-      {/* HEADER AJUSTÉ : Titre centré verticalement, pas d'arrondis en bas */}
+      {/* HEADER */}
       <View style={styles.appHeader}>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.appTitle}>TOPLOTO 🍀</Text>
@@ -263,24 +298,11 @@ export default function LotoApp() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#EDF2F7' },
-  // MODIFICATIONS HEADER
-  appHeader: { 
-    backgroundColor: '#1B4D6E', 
-    paddingTop: 45, // Ajustement pour la barre de statut
-    paddingBottom: 15, 
-    paddingHorizontal: 20, 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', // Centre verticalement les éléments du header
-    elevation: 4
-  },
-  headerTitleContainer: {
-    justifyContent: 'center' // Centre verticalement le texte interne
-  },
+  appHeader: { backgroundColor: '#1B4D6E', paddingTop: 45, paddingBottom: 15, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 4 },
+  headerTitleContainer: { justifyContent: 'center' },
   appTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 1 },
   appSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 1, textTransform: 'capitalize' },
   menuIconBtn: { padding: 5 },
-  
   contentPadding: { flex: 1, paddingHorizontal: 16 },
   topNav: { marginVertical: 15 },
   tabContainer: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#D1D9E0' },
