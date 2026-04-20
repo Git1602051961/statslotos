@@ -91,6 +91,13 @@ export default function LotoApp() {
     }
   };
 
+  const handleDemarquer = () => {
+    if(window.confirm("Démarquer l'écran (Vider) ?")) {
+      setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o));
+      setMode(null); // REND LE BOUTON GAGNÉ INACTIF
+    }
+  };
+
   const handleGagne = () => {
     if (!mode) return;
     const currentMode = mode;
@@ -188,7 +195,6 @@ export default function LotoApp() {
             </View>
 
             <View style={styles.mainNumpadCard}>
-              {/* HISTORIQUE PLUS PETIT (Hauteur réduite) */}
               <View style={styles.numHistoryBar}>
                 <View style={[styles.lastNumSlotSquare, currentOrg.currentSeance[0] ? styles.bgBrown : styles.bgEmpty]}>
                   <Text style={styles.historyTextSmall}>{currentOrg.currentSeance[0]?.val || ''}</Text>
@@ -218,7 +224,6 @@ export default function LotoApp() {
                 })}
               </View>
 
-              {/* PAVÉ NUMÉRIQUE PLUS HAUT */}
               <View style={styles.numpadGrid}>
                 <View style={styles.numbersPart}>
                   <View style={styles.keyRow}>{[1,2,3,4,5].map(n=>(<TouchableOpacity key={n} style={styles.keyLarge} onPress={()=>handlePressNumber(n.toString())}><Text style={styles.keyTextLarge}>{n}</Text></TouchableOpacity>))}</View>
@@ -242,7 +247,7 @@ export default function LotoApp() {
 
             <View style={styles.footerActions}>
                 <TouchableOpacity style={styles.actionBtnSimple} onPress={handleAnnuler}><Text style={{color:'#666'}}>⌫ Annuler dernier</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtnSimple} onPress={() => {if(window.confirm("Démarquer l'écran (Vider) ?")) setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o))}}><Text style={{color:'#666'}}>🧹 Démarquer</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtnSimple} onPress={handleDemarquer}><Text style={{color:'#666'}}>🧹 Démarquer</Text></TouchableOpacity>
             </View>
             
             {currentInput.length > 0 && <Text style={styles.currentSaisieText}>Saisie : {currentInput}</Text>}
@@ -312,7 +317,6 @@ const styles = StyleSheet.create({
   plusBtn: { backgroundColor: '#1B4D6E', width: 45, height: 45, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
   mainNumpadCard: { backgroundColor: '#fff', borderRadius: 15, overflow: 'hidden', borderWidth: 1, borderColor: '#ccc' },
   
-  // HISTORIQUE RÉDUIT
   numHistoryBar: { flexDirection: 'row', height: 45, alignItems: 'center' },
   lastNumSlotSquare: { width: 50, height: 45, justifyContent: 'center', alignItems: 'center' },
   separator: { width: 1, height: '60%', backgroundColor: '#eee' },
@@ -331,7 +335,6 @@ const styles = StyleSheet.create({
   modeItemText: { fontSize: 11, color: '#555', fontWeight: 'bold' },
   modeItemTextActive: { color: '#1B6E85' },
 
-  // PAVÉ NUMÉRIQUE LARGE
   numpadGrid: { flexDirection: 'row', borderTopWidth: 1, borderColor: '#eee' },
   numbersPart: { flex: 1 },
   keyRow: { flexDirection: 'row' },
