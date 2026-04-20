@@ -17,14 +17,12 @@ interface Organisateur {
 }
 
 export default function LotoApp() {
-  // Navigation et Modals
   const [view, setView] = useState<'SAISIE' | 'STATS'>('SAISIE');
   const [menuVisible, setMenuVisible] = useState(false);
   const [modalPartieVisible, setModalPartieVisible] = useState(false);
   const [modalAddOrgVisible, setModalAddOrgVisible] = useState(false);
   const [modalSelectOrgVisible, setModalSelectOrgVisible] = useState(false);
   
-  // Données
   const [newOrgName, setNewOrgName] = useState('');
   const [organisateurs, setOrganisateurs] = useState<Organisateur[]>([
     { id: '1', nom: 'Karine', currentSeance: [], archives: [] }
@@ -32,7 +30,6 @@ export default function LotoApp() {
   const [selectedOrgId, setSelectedOrgId] = useState('1');
   const [selectedTypePartie, setSelectedTypePartie] = useState('1');
   
-  // Logique de jeu
   const [currentInput, setCurrentInput] = useState('');
   const [mode, setMode] = useState<string | null>(null);
   const [modesTermines, setModesTermines] = useState<string[]>([]);
@@ -41,7 +38,6 @@ export default function LotoApp() {
   const currentOrg = organisateurs.find(o => o.id === selectedOrgId) || organisateurs[0];
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // --- PERSISTENCE (LOCALSTORAGE) ---
   useEffect(() => {
     const savedData = localStorage.getItem('@toploto_data');
     const savedId = localStorage.getItem('@toploto_selected_id');
@@ -54,7 +50,6 @@ export default function LotoApp() {
     localStorage.setItem('@toploto_selected_id', selectedOrgId);
   }, [organisateurs, selectedOrgId]);
 
-  // --- ACTIONS DE SAISIE ---
   const validerNumero = (num: number) => {
     if (!mode) {
       alert("⚠️ Sélectionnez d'abord un mode (Ligne, Double ou Carton)");
@@ -83,9 +78,8 @@ export default function LotoApp() {
   };
 
   const handleAnnuler = () => {
-    if (currentInput.length > 0) {
-      setCurrentInput('');
-    } else {
+    if (currentInput.length > 0) setCurrentInput('');
+    else {
       setOrganisateurs(prev => prev.map(org => {
         if (org.id === selectedOrgId && org.currentSeance.length > 0) {
           const newHistory = [...org.currentSeance];
@@ -97,7 +91,6 @@ export default function LotoApp() {
     }
   };
 
-  // --- LOGIQUE GAGNÉ ---
   const handleGagne = () => {
     if (!mode) return;
     const currentMode = mode;
@@ -109,13 +102,11 @@ export default function LotoApp() {
         const nextPartie = (parseInt(selectedTypePartie) + 1).toString();
         setSelectedTypePartie(nextPartie);
         setModesTermines([]);
-        // On ne vide pas les stats globales, juste l'affichage écran
         setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o));
       }
     }
   };
 
-  // --- STATISTIQUES ---
   const getStatsCumulees = () => {
     const counts: { [key: number]: number } = {};
     const source = statPeriod === 'JOUR' ? currentOrg.currentSeance : [...currentOrg.currentSeance, ...currentOrg.archives];
@@ -163,7 +154,6 @@ export default function LotoApp() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1B4D6E" />
       
-      {/* HEADER FIXE */}
       <View style={styles.appHeader}>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.appTitle}>TOPLOTO 🍀</Text>
@@ -175,7 +165,6 @@ export default function LotoApp() {
       </View>
 
       <View style={styles.contentPadding}>
-        {/* TABS NAVIGATION */}
         <View style={styles.topNav}>
           <View style={styles.tabContainer}>
             <TouchableOpacity onPress={() => setView('SAISIE')} style={[styles.tabBtn, view === 'SAISIE' && styles.tabActive]}><Text style={[styles.tabText, view === 'SAISIE' && styles.tabTextActive]}>SAISIE</Text></TouchableOpacity>
@@ -185,7 +174,6 @@ export default function LotoApp() {
 
         {view === 'SAISIE' ? (
           <View style={{flex: 1}}>
-            {/* SELECTION ORG & PARTIE */}
             <View style={styles.headerSelectionRow}>
               <TouchableOpacity style={styles.flexOne} onPress={() => setModalSelectOrgVisible(true)}>
                 <Text style={styles.labelHeader}>ORGANISATEUR</Text>
@@ -199,16 +187,16 @@ export default function LotoApp() {
               <TouchableOpacity style={styles.plusBtn} onPress={() => setModalAddOrgVisible(true)}><Text style={{color: '#fff', fontSize: 24}}>+</Text></TouchableOpacity>
             </View>
 
-            {/* CARTE DE SAISIE PRINCIPALE */}
             <View style={styles.mainNumpadCard}>
+              {/* HISTORIQUE PLUS PETIT (Hauteur réduite) */}
               <View style={styles.numHistoryBar}>
                 <View style={[styles.lastNumSlotSquare, currentOrg.currentSeance[0] ? styles.bgBrown : styles.bgEmpty]}>
-                  <Text style={styles.historyText}>{currentOrg.currentSeance[0]?.val || ''}</Text>
+                  <Text style={styles.historyTextSmall}>{currentOrg.currentSeance[0]?.val || ''}</Text>
                 </View>
                 <View style={styles.separator} />
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScrollArea}>
                   {currentOrg.currentSeance.slice(1).map((item, index) => (
-                    <View key={index} style={[styles.historySlotSquare, styles.bgBlue]}><Text style={styles.historyText}>{item.val}</Text></View>
+                    <View key={index} style={[styles.historySlotSquare, styles.bgBlue]}><Text style={styles.historyTextSmall}>{item.val}</Text></View>
                   ))}
                 </ScrollView>
                 <View style={styles.counterSection}><Text style={styles.counterText}>{currentOrg.currentSeance.length}</Text></View>
@@ -230,19 +218,19 @@ export default function LotoApp() {
                 })}
               </View>
 
+              {/* PAVÉ NUMÉRIQUE PLUS HAUT */}
               <View style={styles.numpadGrid}>
                 <View style={styles.numbersPart}>
-                  <View style={styles.keyRow}>{[1,2,3,4,5].map(n=>(<TouchableOpacity key={n} style={styles.key} onPress={()=>handlePressNumber(n.toString())}><Text style={styles.keyText}>{n}</Text></TouchableOpacity>))}</View>
-                  <View style={styles.keyRow}>{[6,7,8,9,0].map(n=>(<TouchableOpacity key={n} style={styles.key} onPress={()=>handlePressNumber(n.toString())}><Text style={styles.keyText}>{n}</Text></TouchableOpacity>))}</View>
+                  <View style={styles.keyRow}>{[1,2,3,4,5].map(n=>(<TouchableOpacity key={n} style={styles.keyLarge} onPress={()=>handlePressNumber(n.toString())}><Text style={styles.keyTextLarge}>{n}</Text></TouchableOpacity>))}</View>
+                  <View style={styles.keyRow}>{[6,7,8,9,0].map(n=>(<TouchableOpacity key={n} style={styles.keyLarge} onPress={()=>handlePressNumber(n.toString())}><Text style={styles.keyTextLarge}>{n}</Text></TouchableOpacity>))}</View>
                 </View>
-                <TouchableOpacity style={styles.checkBtn} onPress={() => { if(currentInput.length === 1) validerNumero(parseInt(currentInput)) }}>
-                  <Text style={[styles.checkIcon, currentInput.length === 1 ? {color: '#1B6E85'} : {color: '#CCC'}]}>✓</Text>
+                <TouchableOpacity style={styles.checkBtnLarge} onPress={() => { if(currentInput.length === 1) validerNumero(parseInt(currentInput)) }}>
+                  <Text style={[styles.checkIconLarge, currentInput.length === 1 ? {color: '#1B6E85'} : {color: '#CCC'}]}>✓</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* BOUTON GAGNÉ EXCENTRÉ POUR SÉCURITÉ */}
-            <View style={{ marginTop: 30 }}>
+            <View style={{ marginTop: 25 }}>
                 <TouchableOpacity 
                     onPress={() => { if(window.confirm(`Valider la victoire (${mode}) ?`)) handleGagne(); }} 
                     disabled={!mode}
@@ -274,7 +262,6 @@ export default function LotoApp() {
         )}
       </View>
 
-      {/* MODALS GESTION */}
       <Modal visible={menuVisible} transparent>
         <TouchableOpacity style={styles.overlay} onPress={() => setMenuVisible(false)}>
           <View style={styles.modalContent}>
@@ -324,30 +311,36 @@ const styles = StyleSheet.create({
   partieBadgeText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   plusBtn: { backgroundColor: '#1B4D6E', width: 45, height: 45, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
   mainNumpadCard: { backgroundColor: '#fff', borderRadius: 15, overflow: 'hidden', borderWidth: 1, borderColor: '#ccc' },
-  numHistoryBar: { flexDirection: 'row', height: 60, alignItems: 'center' },
-  lastNumSlotSquare: { width: 60, height: 60, justifyContent: 'center', alignItems: 'center' },
+  
+  // HISTORIQUE RÉDUIT
+  numHistoryBar: { flexDirection: 'row', height: 45, alignItems: 'center' },
+  lastNumSlotSquare: { width: 50, height: 45, justifyContent: 'center', alignItems: 'center' },
   separator: { width: 1, height: '60%', backgroundColor: '#eee' },
   historyScrollArea: { flex: 1, paddingLeft: 10 },
-  historySlotSquare: { width: 40, height: 40, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
+  historySlotSquare: { width: 32, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   bgBlue: { backgroundColor: '#1B6E85' },
   bgBrown: { backgroundColor: '#A5522E' },
   bgEmpty: { backgroundColor: '#F0F4F7' },
-  historyText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  counterSection: { width: 40, alignItems: 'center' },
-  counterText: { fontWeight: 'bold', color: '#1B4D6E' },
+  historyTextSmall: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
+  counterSection: { width: 35, alignItems: 'center' },
+  counterText: { fontWeight: 'bold', color: '#1B4D6E', fontSize: 14 },
+
   modeGrid: { flexDirection: 'row', height: 50, borderTopWidth: 1, borderColor: '#eee' },
   modeItem: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderColor: '#eee' },
   modeItemActive: { backgroundColor: '#E8F1F3' },
   modeItemText: { fontSize: 11, color: '#555', fontWeight: 'bold' },
   modeItemTextActive: { color: '#1B6E85' },
+
+  // PAVÉ NUMÉRIQUE LARGE
   numpadGrid: { flexDirection: 'row', borderTopWidth: 1, borderColor: '#eee' },
   numbersPart: { flex: 1 },
   keyRow: { flexDirection: 'row' },
-  key: { flex: 1, aspectRatio: 1.5, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#eee' },
-  keyText: { fontSize: 22, fontWeight: 'bold' },
-  checkBtn: { width: 60, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F4F7' },
-  checkIcon: { fontSize: 30 },
-  gagneBtn: { height: 65, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 3 },
+  keyLarge: { flex: 1, aspectRatio: 1.1, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#eee' },
+  keyTextLarge: { fontSize: 28, fontWeight: 'bold' },
+  checkBtnLarge: { width: 70, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F4F7' },
+  checkIconLarge: { fontSize: 35 },
+
+  gagneBtn: { height: 60, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 3 },
   gagneBtnActive: { backgroundColor: '#E94E31' },
   gagneBtnInactive: { backgroundColor: '#CBD5E0' },
   gagneBtnText: { color: '#fff', fontWeight: '900', fontSize: 18 },
