@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, TextInput, ScrollView, StatusBar, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, TextInput, ScrollView, StatusBar } from 'react-native';
 
+// --- INTERFACES ---
 interface NumeroSaisi {
   val: number;
   mode: string;
@@ -16,21 +17,23 @@ interface Organisateur {
 }
 
 export default function LotoApp() {
+  // Navigation et Modals
   const [view, setView] = useState<'SAISIE' | 'STATS'>('SAISIE');
   const [menuVisible, setMenuVisible] = useState(false);
   const [modalPartieVisible, setModalPartieVisible] = useState(false);
   const [modalAddOrgVisible, setModalAddOrgVisible] = useState(false);
   const [modalSelectOrgVisible, setModalSelectOrgVisible] = useState(false);
   
+  // Données
   const [newOrgName, setNewOrgName] = useState('');
   const [organisateurs, setOrganisateurs] = useState<Organisateur[]>([
     { id: '1', nom: 'Karine', currentSeance: [], archives: [] }
   ]);
   const [selectedOrgId, setSelectedOrgId] = useState('1');
   const [selectedTypePartie, setSelectedTypePartie] = useState('1');
-  const [currentInput, setCurrentInput] = useState('');
   
-  // États pour la nouvelle logique de boutons
+  // Logique de jeu
+  const [currentInput, setCurrentInput] = useState('');
   const [mode, setMode] = useState<string | null>(null);
   const [modesTermines, setModesTermines] = useState<string[]>([]);
   const [statPeriod, setStatPeriod] = useState<'JOUR' | 'GLOBAL'>('GLOBAL');
@@ -38,6 +41,7 @@ export default function LotoApp() {
   const currentOrg = organisateurs.find(o => o.id === selectedOrgId) || organisateurs[0];
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
+  // --- PERSISTENCE (LOCALSTORAGE) ---
   useEffect(() => {
     const savedData = localStorage.getItem('@toploto_data');
     const savedId = localStorage.getItem('@toploto_selected_id');
@@ -50,9 +54,10 @@ export default function LotoApp() {
     localStorage.setItem('@toploto_selected_id', selectedOrgId);
   }, [organisateurs, selectedOrgId]);
 
+  // --- ACTIONS DE SAISIE ---
   const validerNumero = (num: number) => {
     if (!mode) {
-      alert("Sélectionnez d'abord un mode (Ligne, Double ou Carton)");
+      alert("⚠️ Sélectionnez d'abord un mode (Ligne, Double ou Carton)");
       setCurrentInput('');
       return;
     }
@@ -65,22 +70,6 @@ export default function LotoApp() {
     setCurrentInput('');
   };
 
-  const handleGagne = () => {
-    if (!mode) return;
-    const currentMode = mode;
-    setModesTermines([...modesTermines, currentMode]);
-    setMode(null);
-
-    if (currentMode === 'Carton plein') {
-      if (window.confirm("Carton plein terminé ! Passer à la partie suivante ?")) {
-        const nextPartie = (parseInt(selectedTypePartie) + 1).toString();
-        setSelectedTypePartie(nextPartie);
-        setModesTermines([]);
-        setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o));
-      }
-    }
-  };
-
   const handlePressNumber = (val: string) => {
     let nextInput = currentInput + val;
     if (nextInput.length > 2) return;
@@ -88,12 +77,15 @@ export default function LotoApp() {
       const num = parseInt(nextInput);
       if (num >= 1 && num <= 90) validerNumero(num);
       else setCurrentInput('');
-    } else { setCurrentInput(nextInput); }
+    } else {
+      setCurrentInput(nextInput);
+    }
   };
 
   const handleAnnuler = () => {
-    if (currentInput.length > 0) setCurrentInput('');
-    else {
+    if (currentInput.length > 0) {
+      setCurrentInput('');
+    } else {
       setOrganisateurs(prev => prev.map(org => {
         if (org.id === selectedOrgId && org.currentSeance.length > 0) {
           const newHistory = [...org.currentSeance];
@@ -105,6 +97,25 @@ export default function LotoApp() {
     }
   };
 
+  // --- LOGIQUE GAGNÉ ---
+  const handleGagne = () => {
+    if (!mode) return;
+    const currentMode = mode;
+    setModesTermines([...modesTermines, currentMode]);
+    setMode(null);
+
+    if (currentMode === 'Carton plein') {
+      if (window.confirm("🏆 Carton plein terminé ! Passer à la partie suivante ?")) {
+        const nextPartie = (parseInt(selectedTypePartie) + 1).toString();
+        setSelectedTypePartie(nextPartie);
+        setModesTermines([]);
+        // On ne vide pas les stats globales, juste l'affichage écran
+        setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o));
+      }
+    }
+  };
+
+  // --- STATISTIQUES ---
   const getStatsCumulees = () => {
     const counts: { [key: number]: number } = {};
     const source = statPeriod === 'JOUR' ? currentOrg.currentSeance : [...currentOrg.currentSeance, ...currentOrg.archives];
@@ -152,6 +163,7 @@ export default function LotoApp() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1B4D6E" />
       
+      {/* HEADER FIXE */}
       <View style={styles.appHeader}>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.appTitle}>TOPLOTO 🍀</Text>
@@ -163,6 +175,7 @@ export default function LotoApp() {
       </View>
 
       <View style={styles.contentPadding}>
+        {/* TABS NAVIGATION */}
         <View style={styles.topNav}>
           <View style={styles.tabContainer}>
             <TouchableOpacity onPress={() => setView('SAISIE')} style={[styles.tabBtn, view === 'SAISIE' && styles.tabActive]}><Text style={[styles.tabText, view === 'SAISIE' && styles.tabTextActive]}>SAISIE</Text></TouchableOpacity>
@@ -172,6 +185,7 @@ export default function LotoApp() {
 
         {view === 'SAISIE' ? (
           <View style={{flex: 1}}>
+            {/* SELECTION ORG & PARTIE */}
             <View style={styles.headerSelectionRow}>
               <TouchableOpacity style={styles.flexOne} onPress={() => setModalSelectOrgVisible(true)}>
                 <Text style={styles.labelHeader}>ORGANISATEUR</Text>
@@ -185,6 +199,7 @@ export default function LotoApp() {
               <TouchableOpacity style={styles.plusBtn} onPress={() => setModalAddOrgVisible(true)}><Text style={{color: '#fff', fontSize: 24}}>+</Text></TouchableOpacity>
             </View>
 
+            {/* CARTE DE SAISIE PRINCIPALE */}
             <View style={styles.mainNumpadCard}>
               <View style={styles.numHistoryBar}>
                 <View style={[styles.lastNumSlotSquare, currentOrg.currentSeance[0] ? styles.bgBrown : styles.bgEmpty]}>
@@ -224,20 +239,25 @@ export default function LotoApp() {
                   <Text style={[styles.checkIcon, currentInput.length === 1 ? {color: '#1B6E85'} : {color: '#CCC'}]}>✓</Text>
                 </TouchableOpacity>
               </View>
+            </View>
 
-              <TouchableOpacity 
-                onPress={handleGagne} 
-                disabled={!mode}
-                style={[styles.gagneBtn, !mode ? styles.gagneBtnInactive : styles.gagneBtnActive]}
-              >
-                <Text style={styles.gagneBtnText}>{mode ? `GAGNÉ (${mode}) !` : "CHOISIR UN MODE"}</Text>
-              </TouchableOpacity>
+            {/* BOUTON GAGNÉ EXCENTRÉ POUR SÉCURITÉ */}
+            <View style={{ marginTop: 30 }}>
+                <TouchableOpacity 
+                    onPress={() => { if(window.confirm(`Valider la victoire (${mode}) ?`)) handleGagne(); }} 
+                    disabled={!mode}
+                    style={[styles.gagneBtn, !mode ? styles.gagneBtnInactive : styles.gagneBtnActive]}
+                >
+                    <Text style={styles.gagneBtnText}>{mode ? `🏆 GAGNÉ (${mode.toUpperCase()}) !` : "SÉLECTIONNEZ UN MODE"}</Text>
+                </TouchableOpacity>
             </View>
 
             <View style={styles.footerActions}>
-                <TouchableOpacity style={styles.actionBtnSimple} onPress={handleAnnuler}><Text>⌫ Annuler</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtnSimple} onPress={() => {if(window.confirm("Vider l'écran ?")) setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o))}}><Text>🧹 Démarquer</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtnSimple} onPress={handleAnnuler}><Text style={{color:'#666'}}>⌫ Annuler dernier</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtnSimple} onPress={() => {if(window.confirm("Démarquer l'écran (Vider) ?")) setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o))}}><Text style={{color:'#666'}}>🧹 Démarquer</Text></TouchableOpacity>
             </View>
+            
+            {currentInput.length > 0 && <Text style={styles.currentSaisieText}>Saisie : {currentInput}</Text>}
           </View>
         ) : (
           <ScrollView style={styles.statsScroll}>
@@ -254,26 +274,28 @@ export default function LotoApp() {
         )}
       </View>
 
+      {/* MODALS GESTION */}
       <Modal visible={menuVisible} transparent>
         <TouchableOpacity style={styles.overlay} onPress={() => setMenuVisible(false)}>
           <View style={styles.modalContent}>
-            <TouchableOpacity style={styles.modalItem} onPress={() => {if(window.confirm("Clôturer la séance et archiver ?")) { setOrganisateurs(prev => prev.map(org => org.id === selectedOrgId ? { ...org, archives: [...org.currentSeance, ...org.archives], currentSeance: [] } : org)); setMenuVisible(false); }}}><Text style={{fontWeight: 'bold', color: '#1B4D6E'}}>📁 Clôturer la journée</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.modalItem} onPress={() => {if(window.confirm("Clôturer la journée ? Les numéros iront dans les archives permanentes.")){ setOrganisateurs(prev => prev.map(org => org.id === selectedOrgId ? { ...org, archives: [...org.currentSeance, ...org.archives], currentSeance: [] } : org)); setMenuVisible(false); }}}><Text style={{fontWeight: 'bold', color: '#1B4D6E'}}>📁 Clôturer la journée</Text></TouchableOpacity>
             <TouchableOpacity style={styles.modalItem} onPress={() => {if(organisateurs.length > 1 && window.confirm("Supprimer ?")) { const n = organisateurs.filter(o => o.id !== selectedOrgId); setOrganisateurs(n); setSelectedOrgId(n[0].id); setMenuVisible(false); }}}><Text style={{color: 'red'}}>Supprimer l'organisateur</Text></TouchableOpacity>
             <TouchableOpacity style={styles.modalItem} onPress={() => setMenuVisible(false)}><Text>Fermer</Text></TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
 
-      {/* Modals Add Org / Select Org / Select Partie - Gardés identiques à avant */}
       <Modal visible={modalAddOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}>
         <Text style={styles.modalTitle}>Nouveau</Text>
-        <TextInput style={styles.input} placeholder="Nom..." value={newOrgName} onChangeText={setNewOrgName} />
+        <TextInput style={styles.input} placeholder="Nom de l'organisateur..." value={newOrgName} onChangeText={setNewOrgName} autoFocus />
         <View style={styles.modalRowBtns}>
             <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#ccc'}]} onPress={() => setModalAddOrgVisible(false)}><Text>ANNULER</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#1B4D6E'}]} onPress={()=>{if(!newOrgName) return; const id=Date.now().toString(); setOrganisateurs([...organisateurs,{id,nom:newOrgName,currentSeance:[],archives:[]}]); setSelectedOrgId(id); setNewOrgName(''); setModalAddOrgVisible(false);}}><Text style={{color:'#fff'}}>CRÉER</Text></TouchableOpacity>
         </View>
       </View></View></Modal>
-      <Modal visible={modalSelectOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}><FlatList data={organisateurs} renderItem={({item})=>(<TouchableOpacity style={styles.orgItem} onPress={()=>{setSelectedOrgId(item.id); setModalSelectOrgVisible(false);}}><Text>{item.nom}</Text></TouchableOpacity>)} /></View></View></Modal>
+      
+      <Modal visible={modalSelectOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}><FlatList data={organisateurs} keyExtractor={(item)=>item.id} renderItem={({item})=>(<TouchableOpacity style={styles.orgItem} onPress={()=>{setSelectedOrgId(item.id); setModalSelectOrgVisible(false);}}><Text style={styles.boldText}>{item.nom}</Text></TouchableOpacity>)} /></View></View></Modal>
+
       <Modal visible={modalPartieVisible} transparent><View style={styles.overlay}><View style={styles.modalContentLarge}><ScrollView contentContainerStyle={styles.gridParties}>{Array.from({length:21}, (_,i)=>(i+1).toString()).map(p => (<TouchableOpacity key={p} style={[styles.partSquare, selectedTypePartie === p && {backgroundColor:'#E94E31'}]} onPress={()=>{setSelectedTypePartie(p); setModalPartieVisible(false);}}><Text style={[styles.partText, selectedTypePartie === p && {color:'#fff'}]}>{p}</Text></TouchableOpacity>))}</ScrollView></View></View></Modal>
     </View>
   );
@@ -284,7 +306,7 @@ const styles = StyleSheet.create({
   appHeader: { backgroundColor: '#1B4D6E', paddingTop: 45, paddingBottom: 15, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitleContainer: { justifyContent: 'center' },
   appTitle: { color: '#fff', fontSize: 20, fontWeight: '900' },
-  appSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
+  appSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 11, textTransform: 'capitalize' },
   menuIconBtn: { padding: 5 },
   contentPadding: { flex: 1, paddingHorizontal: 16 },
   topNav: { marginVertical: 15 },
@@ -325,12 +347,13 @@ const styles = StyleSheet.create({
   keyText: { fontSize: 22, fontWeight: 'bold' },
   checkBtn: { width: 60, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F4F7' },
   checkIcon: { fontSize: 30 },
-  gagneBtn: { height: 60, justifyContent: 'center', alignItems: 'center' },
+  gagneBtn: { height: 65, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 3 },
   gagneBtnActive: { backgroundColor: '#E94E31' },
-  gagneBtnInactive: { backgroundColor: '#CCC' },
-  gagneBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+  gagneBtnInactive: { backgroundColor: '#CBD5E0' },
+  gagneBtnText: { color: '#fff', fontWeight: '900', fontSize: 18 },
   footerActions: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 15 },
   actionBtnSimple: { padding: 10 },
+  currentSaisieText: { textAlign: 'center', marginTop: 10, fontSize: 16, fontWeight: 'bold', color: '#1B4D6E' },
   statsScroll: { flex: 1 },
   titleStats: { fontSize: 18, fontWeight: 'bold', color: '#1B4D6E', textAlign: 'center', marginVertical: 15 },
   cartonStatsCard: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 20, borderWidth: 1, overflow: 'hidden' },
@@ -348,7 +371,7 @@ const styles = StyleSheet.create({
   gridParties: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   partSquare: { width: '18%', aspectRatio: 1, backgroundColor: '#F0F4F8', justifyContent: 'center', alignItems: 'center', marginBottom: 10, borderRadius: 8 },
   partText: { fontWeight: 'bold' },
-  input: { borderBottomWidth: 1, marginBottom: 20, padding: 5 },
+  input: { borderBottomWidth: 1, marginBottom: 20, padding: 5, fontSize: 16 },
   modalRowBtns: { flexDirection: 'row', justifyContent: 'space-between' },
   halfBtn: { width: '48%', padding: 12, borderRadius: 10, alignItems: 'center' },
   modalItem: { padding: 15, alignItems: 'center', borderBottomWidth: 1, borderColor: '#eee' },
