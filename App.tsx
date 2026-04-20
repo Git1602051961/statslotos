@@ -94,7 +94,7 @@ export default function LotoApp() {
   const handleDemarquer = () => {
     if(window.confirm("Démarquer l'écran (Vider) ?")) {
       setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o));
-      setMode(null); // REND LE BOUTON GAGNÉ INACTIF
+      setMode(null); 
     }
   };
 
@@ -124,15 +124,44 @@ export default function LotoApp() {
       .map(item => item.num);
   };
 
+  // --- NOUVEL ALGORITHME : MAX 5 PAR LIGNE / 15 PAR CARTON ---
   const generateLotoGrid = (numbers: number[]) => {
-    let grid = Array(27).fill(null);
-    let sortedNums = [...numbers].slice(0, 15).sort((a, b) => a - b);
-    sortedNums.forEach(num => {
+    const grid = Array(27).fill(null);
+    const selectedNums = numbers.slice(0, 15).sort((a, b) => a - b);
+    const lineCounts = [0, 0, 0];
+
+    selectedNums.forEach(num => {
       let col = Math.floor(num / 10);
       if (num === 90) col = 8;
+      
+      // On cherche une ligne où la colonne est libre ET qui a moins de 5 numéros
+      let placed = false;
       for (let row = 0; row < 3; row++) {
         let pos = row * 9 + col;
-        if (grid[pos] === null) { grid[pos] = num; break; }
+        if (grid[pos] === null && lineCounts[row] < 5) {
+          grid[pos] = num;
+          lineCounts[row]++;
+          placed = true;
+          break;
+        }
+      }
+      
+      // Si pas de place avec la règle des colonnes, on force sur une ligne libre (cas rare)
+      if (!placed) {
+        for (let row = 0; row < 3; row++) {
+          if (lineCounts[row] < 5) {
+            // Chercher une colonne vide dans cette ligne
+            for(let c=0; c<9; c++) {
+              if (grid[row * 9 + c] === null) {
+                grid[row * 9 + c] = num;
+                lineCounts[row]++;
+                placed = true;
+                break;
+              }
+            }
+          }
+          if (placed) break;
+        }
       }
     });
     return grid;
@@ -140,7 +169,8 @@ export default function LotoApp() {
 
   const renderCartonStats = (index: number, color: string) => {
     const allStats = getStatsCumulees();
-    const cartonData = generateLotoGrid(allStats.slice(index * 3));
+    // On décale les stats pour chaque carton pour ne pas avoir les mêmes partout
+    const cartonData = generateLotoGrid(allStats.slice(index * 5)); 
     return (
       <View key={index} style={[styles.cartonStatsCard, { borderColor: color }]}>
         <View style={[styles.cartonStatsHeader, {backgroundColor: color}]}>
@@ -148,7 +178,7 @@ export default function LotoApp() {
         </View>
         <View style={styles.cartonStatsGrid}>
           {cartonData.map((num, i) => (
-            <View key={i} style={[styles.cartonStatsCell, num && { backgroundColor: color + '15' }]}>
+            <View key={i} style={[styles.cartonStatsCell, num && { backgroundColor: color + '20' }]}>
               <Text style={[styles.cartonStatsCellText, num && { color: color }]}>{num || ''}</Text>
             </View>
           ))}
@@ -267,10 +297,11 @@ export default function LotoApp() {
         )}
       </View>
 
+      {/* MODALS */}
       <Modal visible={menuVisible} transparent>
         <TouchableOpacity style={styles.overlay} onPress={() => setMenuVisible(false)}>
           <View style={styles.modalContent}>
-            <TouchableOpacity style={styles.modalItem} onPress={() => {if(window.confirm("Clôturer la journée ? Les numéros iront dans les archives permanentes.")){ setOrganisateurs(prev => prev.map(org => org.id === selectedOrgId ? { ...org, archives: [...org.currentSeance, ...org.archives], currentSeance: [] } : org)); setMenuVisible(false); }}}><Text style={{fontWeight: 'bold', color: '#1B4D6E'}}>📁 Clôturer la journée</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.modalItem} onPress={() => {if(window.confirm("Clôturer la journée ?")){ setOrganisateurs(prev => prev.map(org => org.id === selectedOrgId ? { ...org, archives: [...org.currentSeance, ...org.archives], currentSeance: [] } : org)); setMenuVisible(false); }}}><Text style={{fontWeight: 'bold', color: '#1B4D6E'}}>📁 Clôturer la journée</Text></TouchableOpacity>
             <TouchableOpacity style={styles.modalItem} onPress={() => {if(organisateurs.length > 1 && window.confirm("Supprimer ?")) { const n = organisateurs.filter(o => o.id !== selectedOrgId); setOrganisateurs(n); setSelectedOrgId(n[0].id); setMenuVisible(false); }}}><Text style={{color: 'red'}}>Supprimer l'organisateur</Text></TouchableOpacity>
             <TouchableOpacity style={styles.modalItem} onPress={() => setMenuVisible(false)}><Text>Fermer</Text></TouchableOpacity>
           </View>
@@ -278,7 +309,6 @@ export default function LotoApp() {
       </Modal>
 
       <Modal visible={modalAddOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>Nouveau</Text>
         <TextInput style={styles.input} placeholder="Nom de l'organisateur..." value={newOrgName} onChangeText={setNewOrgName} autoFocus />
         <View style={styles.modalRowBtns}>
             <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#ccc'}]} onPress={() => setModalAddOrgVisible(false)}><Text>ANNULER</Text></TouchableOpacity>
@@ -316,7 +346,6 @@ const styles = StyleSheet.create({
   partieBadgeText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   plusBtn: { backgroundColor: '#1B4D6E', width: 45, height: 45, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
   mainNumpadCard: { backgroundColor: '#fff', borderRadius: 15, overflow: 'hidden', borderWidth: 1, borderColor: '#ccc' },
-  
   numHistoryBar: { flexDirection: 'row', height: 45, alignItems: 'center' },
   lastNumSlotSquare: { width: 50, height: 45, justifyContent: 'center', alignItems: 'center' },
   separator: { width: 1, height: '60%', backgroundColor: '#eee' },
@@ -328,13 +357,11 @@ const styles = StyleSheet.create({
   historyTextSmall: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   counterSection: { width: 35, alignItems: 'center' },
   counterText: { fontWeight: 'bold', color: '#1B4D6E', fontSize: 14 },
-
   modeGrid: { flexDirection: 'row', height: 50, borderTopWidth: 1, borderColor: '#eee' },
   modeItem: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderColor: '#eee' },
   modeItemActive: { backgroundColor: '#E8F1F3' },
   modeItemText: { fontSize: 11, color: '#555', fontWeight: 'bold' },
   modeItemTextActive: { color: '#1B6E85' },
-
   numpadGrid: { flexDirection: 'row', borderTopWidth: 1, borderColor: '#eee' },
   numbersPart: { flex: 1 },
   keyRow: { flexDirection: 'row' },
@@ -342,7 +369,6 @@ const styles = StyleSheet.create({
   keyTextLarge: { fontSize: 28, fontWeight: 'bold' },
   checkBtnLarge: { width: 70, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F4F7' },
   checkIconLarge: { fontSize: 35 },
-
   gagneBtn: { height: 60, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 3 },
   gagneBtnActive: { backgroundColor: '#E94E31' },
   gagneBtnInactive: { backgroundColor: '#CBD5E0' },
@@ -352,11 +378,11 @@ const styles = StyleSheet.create({
   currentSaisieText: { textAlign: 'center', marginTop: 10, fontSize: 16, fontWeight: 'bold', color: '#1B4D6E' },
   statsScroll: { flex: 1 },
   titleStats: { fontSize: 18, fontWeight: 'bold', color: '#1B4D6E', textAlign: 'center', marginVertical: 15 },
-  cartonStatsCard: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 20, borderWidth: 1, overflow: 'hidden' },
-  cartonStatsHeader: { padding: 5, alignItems: 'center' },
-  cartonStatsTitle: { color: '#fff', fontSize: 11, fontWeight: 'bold' },
-  cartonStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 5 },
-  cartonStatsCell: { width: '11.11%', aspectRatio: 0.9, borderWidth: 0.5, borderColor: '#eee', justifyContent: 'center', alignItems: 'center' },
+  cartonStatsCard: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 20, borderWidth: 2, overflow: 'hidden' },
+  cartonStatsHeader: { padding: 8, alignItems: 'center' },
+  cartonStatsTitle: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  cartonStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 2, backgroundColor: '#fff' },
+  cartonStatsCell: { width: '11.11%', aspectRatio: 1, borderWidth: 1, borderColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' },
   cartonStatsCellText: { fontSize: 14, fontWeight: 'bold' },
   periodRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
   periodBtn: { padding: 8, paddingHorizontal: 20, borderRadius: 20, backgroundColor: '#ddd', marginHorizontal: 5 },
