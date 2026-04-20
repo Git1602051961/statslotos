@@ -38,7 +38,7 @@ export default function LotoApp() {
   const currentOrg = organisateurs.find(o => o.id === selectedOrgId) || organisateurs[0];
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // --- PERSISTANCE ---
+  // PERSISTANCE
   useEffect(() => {
     const savedData = localStorage.getItem('@toploto_data');
     const savedId = localStorage.getItem('@toploto_selected_id');
@@ -51,7 +51,7 @@ export default function LotoApp() {
     localStorage.setItem('@toploto_selected_id', selectedOrgId);
   }, [organisateurs, selectedOrgId]);
 
-  // --- LOGIQUE SAISIE ---
+  // LOGIQUE DE SAISIE
   const validerNumero = (num: number) => {
     if (!mode) {
       alert("⚠️ Sélectionnez d'abord un mode (Ligne, Double ou Carton)");
@@ -96,7 +96,7 @@ export default function LotoApp() {
   const handleDemarquer = () => {
     if(window.confirm("Démarquer l'écran (Vider la séance en cours) ?")) {
       setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o));
-      setMode(null); // Rend le bouton Gagné inactif
+      setMode(null); 
     }
   };
 
@@ -124,7 +124,7 @@ export default function LotoApp() {
     }
   };
 
-  // --- LOGIQUE CARTON IDÉAL (5 PAR LIGNE / 15 TOTAL) ---
+  // LOGIQUE CARTON IDÉAL (5 PAR LIGNE / 15 TOTAL)
   const generateLotoGrid = (numbers: number[]) => {
     const grid = Array(27).fill(null);
     const selectedNums = numbers.slice(0, 15).sort((a, b) => a - b);
@@ -133,7 +133,6 @@ export default function LotoApp() {
     selectedNums.forEach(num => {
       let col = Math.floor(num / 10);
       if (num === 90) col = 8;
-      
       let placed = false;
       for (let row = 0; row < 3; row++) {
         let pos = row * 9 + col;
@@ -173,18 +172,36 @@ export default function LotoApp() {
       .map(item => item.num);
   };
 
+  // --- NOUVEAU DESIGN CARTON (STYLE IMAGE) ---
   const renderCartonStats = (index: number, color: string) => {
     const allStats = getStatsCumulees();
     const cartonData = generateLotoGrid(allStats.slice(index * 5)); 
     return (
       <View key={index} style={[styles.cartonStatsCard, { borderColor: color }]}>
+        {/* Titre du Carton */}
         <View style={[styles.cartonStatsHeader, {backgroundColor: color}]}>
            <Text style={styles.cartonStatsTitle}>CARTON IDÉAL #{index + 1}</Text>
         </View>
+
+        {/* Grille réaliste */}
         <View style={styles.cartonStatsGrid}>
           {cartonData.map((num, i) => (
-            <View key={i} style={[styles.cartonStatsCell, num && { backgroundColor: color + '15' }]}>
-              <Text style={[styles.cartonStatsCellText, num && { color: color }]}>{num || ''}</Text>
+            <View key={i} style={[
+                styles.cartonStatsCell, 
+                // Case Vide -> Design hachuré gris
+                !num && styles.cartonStatsCellEmpty, 
+                num && styles.cartonStatsCellFull
+            ]}>
+              {/* Le numéro en gros, noir, gras */}
+              {num ? (
+                  <Text style={styles.cartonStatsCellText}>{num}</Text>
+              ) : (
+                  // Motif de hachures croisées pour les cases vides
+                  <View style={styles.emptyCrossContainer}>
+                    <View style={styles.emptyLineH} />
+                    <View style={styles.emptyLineV} />
+                  </View>
+              )}
             </View>
           ))}
         </View>
@@ -196,7 +213,6 @@ export default function LotoApp() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1B4D6E" />
       
-      {/* HEADER */}
       <View style={styles.appHeader}>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.appTitle}>TOPLOTO 🍀</Text>
@@ -208,7 +224,6 @@ export default function LotoApp() {
       </View>
 
       <View style={styles.contentPadding}>
-        {/* NAV ONGLES */}
         <View style={styles.topNav}>
           <View style={styles.tabContainer}>
             <TouchableOpacity onPress={() => setView('SAISIE')} style={[styles.tabBtn, view === 'SAISIE' && styles.tabActive]}><Text style={[styles.tabText, view === 'SAISIE' && styles.tabTextActive]}>SAISIE</Text></TouchableOpacity>
@@ -218,7 +233,6 @@ export default function LotoApp() {
 
         {view === 'SAISIE' ? (
           <View style={{flex: 1}}>
-            {/* SELECTION ORG ET PARTIE */}
             <View style={styles.headerSelectionRow}>
               <TouchableOpacity style={styles.flexOne} onPress={() => setModalSelectOrgVisible(true)}>
                 <Text style={styles.labelHeader}>ORGANISATEUR</Text>
@@ -232,9 +246,7 @@ export default function LotoApp() {
               <TouchableOpacity style={styles.plusBtn} onPress={() => setModalAddOrgVisible(true)}><Text style={{color: '#fff', fontSize: 24}}>+</Text></TouchableOpacity>
             </View>
 
-            {/* CARTE PRINCIPALE : HISTORIQUE ET NUMPAD */}
             <View style={styles.mainNumpadCard}>
-              {/* HISTORIQUE HAUTEUR RÉDUITE */}
               <View style={styles.numHistoryBar}>
                 <View style={[styles.lastNumSlotSquare, currentOrg.currentSeance[0] ? styles.bgBrown : styles.bgEmpty]}>
                   <Text style={styles.historyTextSmall}>{currentOrg.currentSeance[0]?.val || ''}</Text>
@@ -248,7 +260,6 @@ export default function LotoApp() {
                 <View style={styles.counterSection}><Text style={styles.counterText}>{currentOrg.currentSeance.length}</Text></View>
               </View>
 
-              {/* CHOIX DU MODE */}
               <View style={styles.modeGrid}>
                 {['Une ligne', 'Deux lignes', 'Carton plein'].map(m => {
                   const estFait = modesTermines.includes(m);
@@ -265,7 +276,6 @@ export default function LotoApp() {
                 })}
               </View>
 
-              {/* PAVÉ NUMÉRIQUE HAUTEUR AUGMENTÉE */}
               <View style={styles.numpadGrid}>
                 <View style={styles.numbersPart}>
                   <View style={styles.keyRow}>{[1,2,3,4,5].map(n=>(<TouchableOpacity key={n} style={styles.keyLarge} onPress={()=>handlePressNumber(n.toString())}><Text style={styles.keyTextLarge}>{n}</Text></TouchableOpacity>))}</View>
@@ -277,7 +287,6 @@ export default function LotoApp() {
               </View>
             </View>
 
-            {/* BOUTON GAGNÉ */}
             <View style={{ marginTop: 25 }}>
                 <TouchableOpacity 
                     onPress={() => { if(window.confirm(`Valider la victoire (${mode}) ?`)) handleGagne(); }} 
@@ -288,16 +297,12 @@ export default function LotoApp() {
                 </TouchableOpacity>
             </View>
 
-            {/* ACTIONS FOOTER */}
             <View style={styles.footerActions}>
                 <TouchableOpacity style={styles.actionBtnSimple} onPress={handleAnnuler}><Text style={{color:'#666'}}>⌫ Annuler dernier</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtnSimple} onPress={handleDemarquer}><Text style={{color:'#666'}}>🧹 Démarquer</Text></TouchableOpacity>
             </View>
-            
-            {currentInput.length > 0 && <Text style={styles.currentSaisieText}>Saisie : {currentInput}</Text>}
           </View>
         ) : (
-          /* VUE STATISTIQUES */
           <ScrollView style={styles.statsScroll}>
             <Text style={styles.titleStats}>Mes 6 Cartons Idéaux</Text>
             <View style={styles.periodRow}>
@@ -316,7 +321,7 @@ export default function LotoApp() {
       <Modal visible={menuVisible} transparent>
         <TouchableOpacity style={styles.overlay} onPress={() => setMenuVisible(false)}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalMenuTitle}>Menu {currentOrg.nom}</Text>
+            <Text style={styles.modalTitleMenu}>Menu {currentOrg.nom}</Text>
             <TouchableOpacity style={styles.modalItem} onPress={() => {if(window.confirm("Clôturer la journée ?")){ setOrganisateurs(prev => prev.map(org => org.id === selectedOrgId ? { ...org, archives: [...org.currentSeance, ...org.archives], currentSeance: [] } : org)); setMenuVisible(false); }}}><Text style={{fontWeight: 'bold', color: '#1B4D6E'}}>📁 Clôturer la journée</Text></TouchableOpacity>
             <TouchableOpacity style={styles.modalItem} onPress={resetOrganisateurData}><Text style={{color: '#E94E31', fontWeight: 'bold'}}>🗑️ Effacer données {currentOrg.nom}</Text></TouchableOpacity>
             <TouchableOpacity style={styles.modalItem} onPress={() => {if(organisateurs.length > 1 && window.confirm("Supprimer l'organisateur ?")) { const n = organisateurs.filter(o => o.id !== selectedOrgId); setOrganisateurs(n); setSelectedOrgId(n[0].id); setMenuVisible(false); }}}><Text style={{color: 'red'}}>❌ Supprimer l'organisateur</Text></TouchableOpacity>
@@ -326,8 +331,7 @@ export default function LotoApp() {
       </Modal>
 
       <Modal visible={modalAddOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}>
-        <Text style={{fontWeight:'bold', marginBottom:10}}>Nouvel Organisateur</Text>
-        <TextInput style={styles.input} placeholder="Nom..." value={newOrgName} onChangeText={setNewOrgName} autoFocus />
+        <TextInput style={styles.input} placeholder="Nom de l'organisateur..." value={newOrgName} onChangeText={setNewOrgName} autoFocus />
         <View style={styles.modalRowBtns}>
             <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#ccc'}]} onPress={() => setModalAddOrgVisible(false)}><Text>ANNULER</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#1B4D6E'}]} onPress={()=>{if(!newOrgName) return; const id=Date.now().toString(); setOrganisateurs([...organisateurs,{id,nom:newOrgName,currentSeance:[],archives:[]}]); setSelectedOrgId(id); setNewOrgName(''); setModalAddOrgVisible(false);}}><Text style={{color:'#fff'}}>CRÉER</Text></TouchableOpacity>
@@ -364,8 +368,6 @@ const styles = StyleSheet.create({
   partieBadgeText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   plusBtn: { backgroundColor: '#1B4D6E', width: 45, height: 45, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
   mainNumpadCard: { backgroundColor: '#fff', borderRadius: 15, overflow: 'hidden', borderWidth: 1, borderColor: '#ccc' },
-  
-  // HISTO RÉDUIT
   numHistoryBar: { flexDirection: 'row', height: 45, alignItems: 'center' },
   lastNumSlotSquare: { width: 50, height: 45, justifyContent: 'center', alignItems: 'center' },
   separator: { width: 1, height: '60%', backgroundColor: '#eee' },
@@ -377,14 +379,11 @@ const styles = StyleSheet.create({
   historyTextSmall: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   counterSection: { width: 35, alignItems: 'center' },
   counterText: { fontWeight: 'bold', color: '#1B4D6E', fontSize: 14 },
-
   modeGrid: { flexDirection: 'row', height: 50, borderTopWidth: 1, borderColor: '#eee' },
   modeItem: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderColor: '#eee' },
   modeItemActive: { backgroundColor: '#E8F1F3' },
   modeItemText: { fontSize: 11, color: '#555', fontWeight: 'bold' },
   modeItemTextActive: { color: '#1B6E85' },
-
-  // NUMPAD HAUT
   numpadGrid: { flexDirection: 'row', borderTopWidth: 1, borderColor: '#eee' },
   numbersPart: { flex: 1 },
   keyRow: { flexDirection: 'row' },
@@ -392,7 +391,6 @@ const styles = StyleSheet.create({
   keyTextLarge: { fontSize: 28, fontWeight: 'bold' },
   checkBtnLarge: { width: 70, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F4F7' },
   checkIconLarge: { fontSize: 35 },
-
   gagneBtn: { height: 60, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 3 },
   gagneBtnActive: { backgroundColor: '#E94E31' },
   gagneBtnInactive: { backgroundColor: '#CBD5E0' },
@@ -401,24 +399,34 @@ const styles = StyleSheet.create({
   actionBtnSimple: { padding: 10 },
   currentSaisieText: { textAlign: 'center', marginTop: 10, fontSize: 16, fontWeight: 'bold', color: '#1B4D6E' },
   
-  // CARTONS IDÉAUX
+  // --- NOUVEAU DESIGN CARTONS ---
   statsScroll: { flex: 1 },
   titleStats: { fontSize: 18, fontWeight: 'bold', color: '#1B4D6E', textAlign: 'center', marginVertical: 15 },
-  cartonStatsCard: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 20, borderWidth: 2, overflow: 'hidden' },
+  cartonStatsCard: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 25, borderWidth: 4, overflow: 'hidden', elevation: 4 },
   cartonStatsHeader: { padding: 8, alignItems: 'center' },
-  cartonStatsTitle: { color: '#fff', fontSize: 12, fontWeight: '900' },
-  cartonStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 2 },
-  cartonStatsCell: { width: '11.11%', aspectRatio: 1, borderWidth: 1, borderColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' },
-  cartonStatsCellText: { fontSize: 14, fontWeight: 'bold' },
+  cartonStatsTitle: { color: '#fff', fontSize: 13, fontWeight: '900', textTransform: 'uppercase' },
+  cartonStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#fff', padding: 3 },
+  cartonStatsCell: { width: '11.11%', aspectRatio: 1, borderWidth: 1, borderColor: '#e0e0e0', justifyContent: 'center', alignItems: 'center' },
+  
+  // Case pleine (comme image)
+  cartonStatsCellFull: { backgroundColor: '#fff' },
+  // Case Vide (comme image) -> Design hachuré gris
+  cartonStatsCellEmpty: { backgroundColor: '#f2f2f2', overflow: 'hidden' }, 
+
+  cartonStatsCellText: { fontSize: 18, fontWeight: '900', color: '#000' }, // Gros, noir, gras
+  
+  // Motif de hachures croisées pour les cases vides (comme image)
+  emptyCrossContainer: { position: 'absolute', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+  emptyLineH: { position: 'absolute', width: '70%', height: 1, backgroundColor: '#b0b0b0', transform: [{ rotate: '45deg' }] },
+  emptyLineV: { position: 'absolute', width: '70%', height: 1, backgroundColor: '#b0b0b0', transform: [{ rotate: '-45deg' }] },
+
   periodRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
   periodBtn: { padding: 8, paddingHorizontal: 20, borderRadius: 20, backgroundColor: '#ddd', marginHorizontal: 5 },
   periodActive: { backgroundColor: '#1B4D6E' },
-  
-  // MODALS ET OVERLAYS
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', padding: 20, borderRadius: 15, width: '85%' },
   modalContentLarge: { backgroundColor: '#fff', width: '90%', padding: 20, borderRadius: 15 },
-  modalMenuTitle: { fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginBottom: 15, color: '#1B4D6E' },
+  modalTitleMenu: { fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginBottom: 15, color: '#1B4D6E' },
   gridParties: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   partSquare: { width: '18%', aspectRatio: 1, backgroundColor: '#F0F4F8', justifyContent: 'center', alignItems: 'center', marginBottom: 10, borderRadius: 8 },
   partText: { fontWeight: 'bold' },
