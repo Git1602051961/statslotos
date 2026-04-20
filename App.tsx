@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, TextInput, ScrollView, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, TextInput, ScrollView, StatusBar, Alert } from 'react-native';
 
-// --- TYPES ---
 interface NumeroSaisi {
   val: number;
   mode: string;
@@ -30,33 +29,58 @@ export default function LotoApp() {
   const [selectedOrgId, setSelectedOrgId] = useState('1');
   const [selectedTypePartie, setSelectedTypePartie] = useState('1');
   const [currentInput, setCurrentInput] = useState('');
-  const [mode, setMode] = useState('Une ligne');
+  
+  // États pour la nouvelle logique de boutons
+  const [mode, setMode] = useState<string | null>(null);
+  const [modesTermines, setModesTermines] = useState<string[]>([]);
   const [statPeriod, setStatPeriod] = useState<'JOUR' | 'GLOBAL'>('GLOBAL');
 
   const currentOrg = organisateurs.find(o => o.id === selectedOrgId) || organisateurs[0];
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // --- SAUVEGARDE VIA LOCALSTORAGE (SANS INSTALLATION) ---
   useEffect(() => {
-    const loadData = () => {
-      try {
-        const savedData = localStorage.getItem('@toploto_data');
-        const savedId = localStorage.getItem('@toploto_selected_id');
-        if (savedData) setOrganisateurs(JSON.parse(savedData));
-        if (savedId) setSelectedOrgId(savedId);
-      } catch (e) { console.error("Erreur chargement", e); }
-    };
-    loadData();
+    const savedData = localStorage.getItem('@toploto_data');
+    const savedId = localStorage.getItem('@toploto_selected_id');
+    if (savedData) setOrganisateurs(JSON.parse(savedData));
+    if (savedId) setSelectedOrgId(savedId);
   }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('@toploto_data', JSON.stringify(organisateurs));
-      localStorage.setItem('@toploto_selected_id', selectedOrgId);
-    } catch (e) { console.error("Erreur sauvegarde", e); }
+    localStorage.setItem('@toploto_data', JSON.stringify(organisateurs));
+    localStorage.setItem('@toploto_selected_id', selectedOrgId);
   }, [organisateurs, selectedOrgId]);
 
-  // --- ACTIONS ---
+  const validerNumero = (num: number) => {
+    if (!mode) {
+      alert("Sélectionnez d'abord un mode (Ligne, Double ou Carton)");
+      setCurrentInput('');
+      return;
+    }
+    setOrganisateurs(prev => prev.map(org => {
+      if (org.id === selectedOrgId) {
+        return { ...org, currentSeance: [{ val: num, mode, typePartie: selectedTypePartie, date: today }, ...org.currentSeance] };
+      }
+      return org;
+    }));
+    setCurrentInput('');
+  };
+
+  const handleGagne = () => {
+    if (!mode) return;
+    const currentMode = mode;
+    setModesTermines([...modesTermines, currentMode]);
+    setMode(null);
+
+    if (currentMode === 'Carton plein') {
+      if (window.confirm("Carton plein terminé ! Passer à la partie suivante ?")) {
+        const nextPartie = (parseInt(selectedTypePartie) + 1).toString();
+        setSelectedTypePartie(nextPartie);
+        setModesTermines([]);
+        setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o));
+      }
+    }
+  };
+
   const handlePressNumber = (val: string) => {
     let nextInput = currentInput + val;
     if (nextInput.length > 2) return;
@@ -67,35 +91,8 @@ export default function LotoApp() {
     } else { setCurrentInput(nextInput); }
   };
 
-  const validerNumero = (num: number) => {
-    setOrganisateurs(prev => prev.map(org => {
-      if (org.id === selectedOrgId) {
-        return { ...org, currentSeance: [{ val: num, mode, typePartie: selectedTypePartie, date: today }, ...org.currentSeance] };
-      }
-      return org;
-    }));
-    setCurrentInput('');
-  };
-
-  const viderHistorique = () => {
-    if (window.confirm("Voulez-vous vraiment démarquer ?")) {
-      setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o));
-    }
-  };
-
-  const cloturerJournee = () => {
-    if (window.confirm("Voulez-vous clôturer cette journée ?")) {
-      setOrganisateurs(prev => prev.map(org => {
-        if (org.id === selectedOrgId) {
-          return { ...org, archives: [...org.currentSeance, ...org.archives], currentSeance: [] };
-        }
-        return org;
-      }));
-    }
-  };
-
   const handleAnnuler = () => {
-    if (currentInput.length > 0) { setCurrentInput(''); } 
+    if (currentInput.length > 0) setCurrentInput('');
     else {
       setOrganisateurs(prev => prev.map(org => {
         if (org.id === selectedOrgId && org.currentSeance.length > 0) {
@@ -108,17 +105,6 @@ export default function LotoApp() {
     }
   };
 
-  const supprimerOrganisateur = () => {
-    if (organisateurs.length <= 1) return;
-    if (window.confirm(`Supprimer ${currentOrg.nom} ?`)) {
-      const nouveaux = organisateurs.filter(o => o.id !== selectedOrgId);
-      setOrganisateurs(nouveaux);
-      setSelectedOrgId(nouveaux[0].id);
-      setMenuVisible(false);
-    }
-  };
-
-  // --- LOGIQUE STATS ---
   const getStatsCumulees = () => {
     const counts: { [key: number]: number } = {};
     const source = statPeriod === 'JOUR' ? currentOrg.currentSeance : [...currentOrg.currentSeance, ...currentOrg.archives];
@@ -214,17 +200,19 @@ export default function LotoApp() {
               </View>
 
               <View style={styles.modeGrid}>
-                {['Une ligne', 'Deux lignes', 'Carton plein'].map(m => (
-                  <TouchableOpacity key={m} onPress={() => setMode(m)} style={[styles.modeItem, mode === m && styles.modeItemActive]}>
-                    <Text style={[styles.modeItemText, mode === m && styles.modeItemTextActive]}>{m}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.actionBtn} onPress={handleAnnuler}><Text style={styles.actionBtnText}>⌫ Annuler</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={viderHistorique}><Text style={styles.actionBtnText}>🧹 Démarquer</Text></TouchableOpacity>
-                <TouchableOpacity style={[styles.actionBtn, {backgroundColor: '#1B4D6E'}]} onPress={cloturerJournee}><Text style={[styles.actionBtnText, {color: '#fff'}]}>📁 Clôturer</Text></TouchableOpacity>
+                {['Une ligne', 'Deux lignes', 'Carton plein'].map(m => {
+                  const estFait = modesTermines.includes(m);
+                  return (
+                    <TouchableOpacity 
+                      key={m} 
+                      disabled={estFait}
+                      onPress={() => setMode(m)} 
+                      style={[styles.modeItem, mode === m && styles.modeItemActive, estFait && {backgroundColor: '#f0f0f0'}]}
+                    >
+                      <Text style={[styles.modeItemText, mode === m && styles.modeItemTextActive, estFait && {color: '#bbb', textDecorationLine: 'line-through'}]}>{m}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
               <View style={styles.numpadGrid}>
@@ -236,8 +224,20 @@ export default function LotoApp() {
                   <Text style={[styles.checkIcon, currentInput.length === 1 ? {color: '#1B6E85'} : {color: '#CCC'}]}>✓</Text>
                 </TouchableOpacity>
               </View>
+
+              <TouchableOpacity 
+                onPress={handleGagne} 
+                disabled={!mode}
+                style={[styles.gagneBtn, !mode ? styles.gagneBtnInactive : styles.gagneBtnActive]}
+              >
+                <Text style={styles.gagneBtnText}>{mode ? `GAGNÉ (${mode}) !` : "CHOISIR UN MODE"}</Text>
+              </TouchableOpacity>
             </View>
-            {currentInput.length > 0 && <Text style={styles.currentSaisieText}>Saisie : {currentInput}</Text>}
+
+            <View style={styles.footerActions}>
+                <TouchableOpacity style={styles.actionBtnSimple} onPress={handleAnnuler}><Text>⌫ Annuler</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtnSimple} onPress={() => {if(window.confirm("Vider l'écran ?")) setOrganisateurs(prev => prev.map(o => o.id === selectedOrgId ? { ...o, currentSeance: [] } : o))}}><Text>🧹 Démarquer</Text></TouchableOpacity>
+            </View>
           </View>
         ) : (
           <ScrollView style={styles.statsScroll}>
@@ -257,23 +257,23 @@ export default function LotoApp() {
       <Modal visible={menuVisible} transparent>
         <TouchableOpacity style={styles.overlay} onPress={() => setMenuVisible(false)}>
           <View style={styles.modalContent}>
-            <TouchableOpacity style={styles.modalItem} onPress={supprimerOrganisateur}><Text style={{color: 'red', fontWeight: 'bold'}}>Supprimer cet organisateur</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.modalItem} onPress={() => {if(window.confirm("Clôturer la séance et archiver ?")) { setOrganisateurs(prev => prev.map(org => org.id === selectedOrgId ? { ...org, archives: [...org.currentSeance, ...org.archives], currentSeance: [] } : org)); setMenuVisible(false); }}}><Text style={{fontWeight: 'bold', color: '#1B4D6E'}}>📁 Clôturer la journée</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.modalItem} onPress={() => {if(organisateurs.length > 1 && window.confirm("Supprimer ?")) { const n = organisateurs.filter(o => o.id !== selectedOrgId); setOrganisateurs(n); setSelectedOrgId(n[0].id); setMenuVisible(false); }}}><Text style={{color: 'red'}}>Supprimer l'organisateur</Text></TouchableOpacity>
             <TouchableOpacity style={styles.modalItem} onPress={() => setMenuVisible(false)}><Text>Fermer</Text></TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
 
+      {/* Modals Add Org / Select Org / Select Partie - Gardés identiques à avant */}
       <Modal visible={modalAddOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}>
         <Text style={styles.modalTitle}>Nouveau</Text>
-        <TextInput style={styles.input} placeholder="Nom..." value={newOrgName} onChangeText={setNewOrgName} autoFocus />
+        <TextInput style={styles.input} placeholder="Nom..." value={newOrgName} onChangeText={setNewOrgName} />
         <View style={styles.modalRowBtns}>
             <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#ccc'}]} onPress={() => setModalAddOrgVisible(false)}><Text>ANNULER</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.halfBtn, {backgroundColor: '#1B4D6E'}]} onPress={()=>{if(!newOrgName) return; const id=Date.now().toString(); setOrganisateurs([...organisateurs,{id,nom:newOrgName,currentSeance:[],archives:[]}]); setSelectedOrgId(id); setNewOrgName(''); setModalAddOrgVisible(false);}}><Text style={{color:'#fff'}}>CRÉER</Text></TouchableOpacity>
         </View>
       </View></View></Modal>
-      
       <Modal visible={modalSelectOrgVisible} transparent><View style={styles.overlay}><View style={styles.modalContent}><FlatList data={organisateurs} renderItem={({item})=>(<TouchableOpacity style={styles.orgItem} onPress={()=>{setSelectedOrgId(item.id); setModalSelectOrgVisible(false);}}><Text>{item.nom}</Text></TouchableOpacity>)} /></View></View></Modal>
-
       <Modal visible={modalPartieVisible} transparent><View style={styles.overlay}><View style={styles.modalContentLarge}><ScrollView contentContainerStyle={styles.gridParties}>{Array.from({length:21}, (_,i)=>(i+1).toString()).map(p => (<TouchableOpacity key={p} style={[styles.partSquare, selectedTypePartie === p && {backgroundColor:'#E94E31'}]} onPress={()=>{setSelectedTypePartie(p); setModalPartieVisible(false);}}><Text style={[styles.partText, selectedTypePartie === p && {color:'#fff'}]}>{p}</Text></TouchableOpacity>))}</ScrollView></View></View></Modal>
     </View>
   );
@@ -281,10 +281,10 @@ export default function LotoApp() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#EDF2F7' },
-  appHeader: { backgroundColor: '#1B4D6E', paddingTop: 45, paddingBottom: 15, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 4 },
+  appHeader: { backgroundColor: '#1B4D6E', paddingTop: 45, paddingBottom: 15, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitleContainer: { justifyContent: 'center' },
-  appTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 1 },
-  appSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 1, textTransform: 'capitalize' },
+  appTitle: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  appSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
   menuIconBtn: { padding: 5 },
   contentPadding: { flex: 1, paddingHorizontal: 16 },
   topNav: { marginVertical: 15 },
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: '#1B4D6E' },
   tabText: { color: '#888', fontWeight: 'bold', fontSize: 12 },
   tabTextActive: { color: '#fff' },
-  headerSelectionRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 20 },
+  headerSelectionRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 15 },
   labelHeader: { fontSize: 10, color: '#666', fontWeight: 'bold', marginBottom: 5 },
   whiteBox: { backgroundColor: '#fff', borderRadius: 10, padding: 10, height: 45, justifyContent: 'center', borderWidth: 1, borderColor: '#D1D9E0' },
   boldText: { fontWeight: 'bold', fontSize: 14 },
@@ -316,21 +316,23 @@ const styles = StyleSheet.create({
   modeGrid: { flexDirection: 'row', height: 50, borderTopWidth: 1, borderColor: '#eee' },
   modeItem: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderColor: '#eee' },
   modeItemActive: { backgroundColor: '#E8F1F3' },
-  modeItemText: { fontSize: 11, color: '#555' },
-  modeItemTextActive: { color: '#1B6E85', fontWeight: 'bold' },
-  actionRow: { flexDirection: 'row', height: 50, borderTopWidth: 1, borderColor: '#eee' },
-  actionBtn: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderColor: '#eee' },
-  actionBtnText: { fontSize: 11, textAlign: 'center', fontWeight: '500' },
+  modeItemText: { fontSize: 11, color: '#555', fontWeight: 'bold' },
+  modeItemTextActive: { color: '#1B6E85' },
   numpadGrid: { flexDirection: 'row', borderTopWidth: 1, borderColor: '#eee' },
   numbersPart: { flex: 1 },
   keyRow: { flexDirection: 'row' },
-  key: { flex: 1, aspectRatio: 1.2, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#eee' },
+  key: { flex: 1, aspectRatio: 1.5, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#eee' },
   keyText: { fontSize: 22, fontWeight: 'bold' },
   checkBtn: { width: 60, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F4F7' },
   checkIcon: { fontSize: 30 },
-  currentSaisieText: { textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#1B4D6E', marginTop: 10 },
-  statsScroll: { flex: 1, paddingVertical: 10 },
-  titleStats: { fontSize: 18, fontWeight: 'bold', color: '#1B4D6E', textAlign: 'center', marginBottom: 15 },
+  gagneBtn: { height: 60, justifyContent: 'center', alignItems: 'center' },
+  gagneBtnActive: { backgroundColor: '#E94E31' },
+  gagneBtnInactive: { backgroundColor: '#CCC' },
+  gagneBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+  footerActions: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 15 },
+  actionBtnSimple: { padding: 10 },
+  statsScroll: { flex: 1 },
+  titleStats: { fontSize: 18, fontWeight: 'bold', color: '#1B4D6E', textAlign: 'center', marginVertical: 15 },
   cartonStatsCard: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 20, borderWidth: 1, overflow: 'hidden' },
   cartonStatsHeader: { padding: 5, alignItems: 'center' },
   cartonStatsTitle: { color: '#fff', fontSize: 11, fontWeight: 'bold' },
