@@ -138,32 +138,40 @@ export default function LotoApp() {
     }
   };
 
-  // LOGIQUE CARTON IDÉAL (5 PAR LIGNE / 15 TOTAL)
+  // LOGIQUE CARTON IDÉAL (5 PAR LIGNE / MAX 2 PAR COLONNE / 15 TOTAL)
   const generateLotoGrid = (numbers: number[]) => {
     const grid = Array(27).fill(null);
     const selectedNums = numbers.slice(0, 15).sort((a, b) => a - b);
+    
     const lineCounts = [0, 0, 0];
+    const colCounts = Array(9).fill(0); // Suivi pour ne pas dépasser 2 par colonne
 
     selectedNums.forEach(num => {
       let col = Math.floor(num / 10);
       if (num === 90) col = 8;
+
       let placed = false;
+      // Tentative de placement respectant les colonnes ET les lignes
       for (let row = 0; row < 3; row++) {
         let pos = row * 9 + col;
-        if (grid[pos] === null && lineCounts[row] < 5) {
+        if (grid[pos] === null && lineCounts[row] < 5 && colCounts[col] < 2) {
           grid[pos] = num;
           lineCounts[row]++;
+          colCounts[col]++;
           placed = true;
           break;
         }
       }
+
+      // Sécurité : si la colonne est pleine (2 numéros), on cherche la colonne vide la plus proche sur la même ligne
       if (!placed) {
         for (let row = 0; row < 3; row++) {
           if (lineCounts[row] < 5) {
-            for(let c=0; c<9; c++) {
-              if (grid[row * 9 + c] === null) {
+            for (let c = 0; c < 9; c++) {
+              if (grid[row * 9 + c] === null && colCounts[c] < 2) {
                 grid[row * 9 + c] = num;
                 lineCounts[row]++;
+                colCounts[c]++;
                 placed = true;
                 break;
               }
@@ -221,7 +229,7 @@ export default function LotoApp() {
     return (
       <View key={index} style={[styles.cartonStatsCard, { borderColor: color }]}>
         <View style={[styles.cartonStatsHeader, {backgroundColor: color}]}>
-           <Text style={styles.cartonStatsTitle}>CARTON IDÉAL #{index + 1}</Text>
+            <Text style={styles.cartonStatsTitle}>CARTON IDÉAL #{index + 1}</Text>
         </View>
         <View style={styles.cartonStatsGrid}>
           {cartonData.map((num, i) => (
@@ -515,4 +523,4 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
   btnCancel: { padding: 15, flex: 1, alignItems: 'center' },
   btnSave: { padding: 15, flex: 2, backgroundColor: '#1B4D6E', borderRadius: 10, alignItems: 'center' },
-});
+});8
