@@ -16,8 +16,14 @@ interface Organisateur {
   archives: NumeroSaisi[];
 }
 
+interface MonCarton {
+  id: string;
+  numeros: number[];
+  couleur: string;
+}
+
 export default function LotoApp() {
-  const [view, setView] = useState<'SAISIE' | 'STATS'>('SAISIE');
+  const [view, setView] = useState<'SAISIE' | 'STATS' | 'MES_CARTONS'>('SAISIE');
   const [menuVisible, setMenuVisible] = useState(false);
   const [modalPartieVisible, setModalPartieVisible] = useState(false);
   const [modalAddOrgVisible, setModalAddOrgVisible] = useState(false);
@@ -35,6 +41,11 @@ export default function LotoApp() {
   const [modesTermines, setModesTermines] = useState<string[]>([]);
   const [statPeriod, setStatPeriod] = useState<'JOUR' | 'GLOBAL'>('GLOBAL');
 
+  // --- NOUVEAUX ETATS POUR LA PAUSE ---
+  const [mesCartons, setMesCartons] = useState<MonCarton[]>([]);
+  const [modalSaisieCarton, setModalSaisieCarton] = useState(false);
+  const [tempCarton, setTempCarton] = useState<number[]>([]);
+
   const currentOrg = organisateurs.find(o => o.id === selectedOrgId) || organisateurs[0];
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -42,14 +53,17 @@ export default function LotoApp() {
   useEffect(() => {
     const savedData = localStorage.getItem('@toploto_data');
     const savedId = localStorage.getItem('@toploto_selected_id');
+    const savedCartons = localStorage.getItem('@toploto_mes_cartons');
     if (savedData) setOrganisateurs(JSON.parse(savedData));
     if (savedId) setSelectedOrgId(savedId);
+    if (savedCartons) setMesCartons(JSON.parse(savedCartons));
   }, []);
 
   useEffect(() => {
     localStorage.setItem('@toploto_data', JSON.stringify(organisateurs));
     localStorage.setItem('@toploto_selected_id', selectedOrgId);
-  }, [organisateurs, selectedOrgId]);
+    localStorage.setItem('@toploto_mes_cartons', JSON.stringify(mesCartons));
+  }, [organisateurs, selectedOrgId, mesCartons]);
 
   // LOGIQUE DE SAISIE
   const validerNumero = (num: number) => {
@@ -172,31 +186,53 @@ export default function LotoApp() {
       .map(item => item.num);
   };
 
+  // --- LOGIQUE SAISIE RAPIDE PAUSE ---
+  const toggleNumInTempCarton = (num: number) => {
+    if (tempCarton.includes(num)) {
+      setTempCarton(tempCarton.filter(n => n !== num));
+    } else {
+      if (tempCarton.length < 15) setTempCarton([...tempCarton, num]);
+    }
+  };
+
+  const sauvegarderCarton = () => {
+    if (tempCarton.length !== 15) return;
+    const couleurs = ['#E94E31', '#1B6E85', '#6A4C93', '#2E7D32', '#F9A825', '#C2185B'];
+    const nouveau: MonCarton = {
+      id: Date.now().toString(),
+      numeros: [...tempCarton].sort((a,b) => a-b),
+      couleur: couleurs[mesCartons.length % couleurs.length]
+    };
+    setMesCartons([...mesCartons, nouveau]);
+    setTempCarton([]);
+    setModalSaisieCarton(false);
+  };
+
+  const getScoreIdealite = (nums: number[]) => {
+    const stats = getStatsCumulees();
+    const tops = stats.slice(0, 30);
+    return nums.filter(n => tops.includes(n)).length;
+  };
+
   // --- NOUVEAU DESIGN CARTON (STYLE IMAGE) ---
   const renderCartonStats = (index: number, color: string) => {
     const allStats = getStatsCumulees();
     const cartonData = generateLotoGrid(allStats.slice(index * 5)); 
     return (
       <View key={index} style={[styles.cartonStatsCard, { borderColor: color }]}>
-        {/* Titre du Carton */}
         <View style={[styles.cartonStatsHeader, {backgroundColor: color}]}>
            <Text style={styles.cartonStatsTitle}>CARTON IDÉAL #{index + 1}</Text>
         </View>
-
-        {/* Grille réaliste */}
         <View style={styles.cartonStatsGrid}>
           {cartonData.map((num, i) => (
             <View key={i} style={[
                 styles.cartonStatsCell, 
-                // Case Vide -> Design hachuré gris
                 !num && styles.cartonStatsCellEmpty, 
                 num && styles.cartonStatsCellFull
             ]}>
-              {/* Le numéro en gros, noir, gras */}
               {num ? (
                   <Text style={styles.cartonStatsCellText}>{num}</Text>
               ) : (
-                  // Motif de hachures croisées pour les cases vides
                   <View style={styles.emptyCrossContainer}>
                     <View style={styles.emptyLineH} />
                     <View style={styles.emptyLineV} />
@@ -228,6 +264,7 @@ export default function LotoApp() {
           <View style={styles.tabContainer}>
             <TouchableOpacity onPress={() => setView('SAISIE')} style={[styles.tabBtn, view === 'SAISIE' && styles.tabActive]}><Text style={[styles.tabText, view === 'SAISIE' && styles.tabTextActive]}>SAISIE</Text></TouchableOpacity>
             <TouchableOpacity onPress={() => setView('STATS')} style={[styles.tabBtn, view === 'STATS' && styles.tabActive]}><Text style={[styles.tabText, view === 'STATS' && styles.tabTextActive]}>STATS</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setView('MES_CARTONS')} style={[styles.tabBtn, view === 'MES_CARTONS' && styles.tabActive]}><Text style={[styles.tabText, view === 'MES_CARTONS' && styles.tabTextActive]}>PAUSE</Text></TouchableOpacity>
           </View>
         </View>
 
@@ -302,7 +339,7 @@ export default function LotoApp() {
                 <TouchableOpacity style={styles.actionBtnSimple} onPress={handleDemarquer}><Text style={{color:'#666'}}>🧹 Démarquer</Text></TouchableOpacity>
             </View>
           </View>
-        ) : (
+        ) : view === 'STATS' ? (
           <ScrollView style={styles.statsScroll}>
             <Text style={styles.titleStats}>Mes 6 Cartons Idéaux</Text>
             <View style={styles.periodRow}>
@@ -314,10 +351,44 @@ export default function LotoApp() {
             ))}
             <View style={{height: 100}} />
           </ScrollView>
+        ) : (
+          <View style={{flex: 1}}>
+            <TouchableOpacity style={styles.addCartonBtn} onPress={() => setModalSaisieCarton(true)}>
+              <Text style={styles.addCartonBtnText}>+ SCAN / SAISIE RAPIDE CARTON</Text>
+            </TouchableOpacity>
+            <ScrollView>
+              {mesCartons.sort((a,b) => getScoreIdealite(b.numeros) - getScoreIdealite(a.numeros)).map((c) => (
+                <View key={c.id} style={[styles.cartonMini, {borderColor: c.couleur}]}>
+                  <View style={styles.cartonMiniHeader}>
+                    <Text style={styles.cartonMiniTitle}>POTENTIEL : {getScoreIdealite(c.numeros)} / 15</Text>
+                    <TouchableOpacity onPress={() => setMesCartons(mesCartons.filter(m => m.id !== c.id))}><Text style={{color: 'red', fontSize: 10}}>Suppr.</Text></TouchableOpacity>
+                  </View>
+                  <View style={styles.cartonMiniNums}>{c.numeros.map(n => <Text key={n} style={styles.miniNumText}>{n}</Text>)}</View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
         )}
       </View>
 
       {/* --- MODALS --- */}
+      <Modal visible={modalSaisieCarton} animationType="slide">
+        <View style={styles.modalFull}>
+          <Text style={styles.modalFullTitle}>Saisie 15 numéros ({tempCarton.length}/15)</Text>
+          <ScrollView contentContainerStyle={styles.gridSaisieRapide}>
+            {Array.from({length: 90}, (_, i) => i + 1).map(n => (
+              <TouchableOpacity key={n} onPress={() => toggleNumInTempCarton(n)} style={[styles.numTile, tempCarton.includes(n) && styles.numTileActive]}>
+                <Text style={[styles.numTileText, tempCarton.includes(n) && {color:'#fff'}]}>{n}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.btnCancel} onPress={() => {setTempCarton([]); setModalSaisieCarton(false);}}><Text>ANNULER</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.btnSave} onPress={sauvegarderCarton}><Text style={{color:'#fff', fontWeight: 'bold'}}>VALIDER LE CARTON</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={menuVisible} transparent>
         <TouchableOpacity style={styles.overlay} onPress={() => setMenuVisible(false)}>
           <View style={styles.modalContent}>
@@ -398,8 +469,6 @@ const styles = StyleSheet.create({
   footerActions: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 15 },
   actionBtnSimple: { padding: 10 },
   currentSaisieText: { textAlign: 'center', marginTop: 10, fontSize: 16, fontWeight: 'bold', color: '#1B4D6E' },
-  
-  // --- NOUVEAU DESIGN CARTONS ---
   statsScroll: { flex: 1 },
   titleStats: { fontSize: 18, fontWeight: 'bold', color: '#1B4D6E', textAlign: 'center', marginVertical: 15 },
   cartonStatsCard: { backgroundColor: '#fff', borderRadius: 10, marginBottom: 25, borderWidth: 4, overflow: 'hidden', elevation: 4 },
@@ -407,19 +476,12 @@ const styles = StyleSheet.create({
   cartonStatsTitle: { color: '#fff', fontSize: 13, fontWeight: '900', textTransform: 'uppercase' },
   cartonStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#fff', padding: 3 },
   cartonStatsCell: { width: '11.11%', aspectRatio: 1, borderWidth: 1, borderColor: '#e0e0e0', justifyContent: 'center', alignItems: 'center' },
-  
-  // Case pleine (comme image)
   cartonStatsCellFull: { backgroundColor: '#fff' },
-  // Case Vide (comme image) -> Design hachuré gris
   cartonStatsCellEmpty: { backgroundColor: '#f2f2f2', overflow: 'hidden' }, 
-
-  cartonStatsCellText: { fontSize: 18, fontWeight: '900', color: '#000' }, // Gros, noir, gras
-  
-  // Motif de hachures croisées pour les cases vides (comme image)
+  cartonStatsCellText: { fontSize: 18, fontWeight: '900', color: '#000' },
   emptyCrossContainer: { position: 'absolute', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
   emptyLineH: { position: 'absolute', width: '70%', height: 1, backgroundColor: '#b0b0b0', transform: [{ rotate: '45deg' }] },
   emptyLineV: { position: 'absolute', width: '70%', height: 1, backgroundColor: '#b0b0b0', transform: [{ rotate: '-45deg' }] },
-
   periodRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
   periodBtn: { padding: 8, paddingHorizontal: 20, borderRadius: 20, backgroundColor: '#ddd', marginHorizontal: 5 },
   periodActive: { backgroundColor: '#1B4D6E' },
@@ -435,4 +497,22 @@ const styles = StyleSheet.create({
   halfBtn: { width: '48%', padding: 12, borderRadius: 10, alignItems: 'center' },
   modalItem: { padding: 15, alignItems: 'center', borderBottomWidth: 1, borderColor: '#eee' },
   orgItem: { padding: 15, borderBottomWidth: 1, borderColor: '#eee' },
+
+  // --- NOUVEAUX STYLES PAUSE ---
+  addCartonBtn: { backgroundColor: '#2E7D32', padding: 15, borderRadius: 10, alignItems: 'center', marginVertical: 15 },
+  addCartonBtnText: { color: '#fff', fontWeight: 'bold' },
+  cartonMini: { backgroundColor: '#fff', borderRadius: 8, padding: 10, marginBottom: 15, borderWidth: 2 },
+  cartonMiniHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, borderBottomWidth: 1, borderColor: '#eee' },
+  cartonMiniTitle: { fontWeight: 'bold', fontSize: 12, color: '#1B4D6E' },
+  cartonMiniNums: { flexDirection: 'row', flexWrap: 'wrap' },
+  miniNumText: { width: '13%', fontSize: 13, fontWeight: 'bold', textAlign: 'center', margin: 2, color: '#000' },
+  modalFull: { flex: 1, backgroundColor: '#F0F4F8', padding: 20 },
+  modalFullTitle: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginVertical: 20, color: '#1B4D6E' },
+  gridSaisieRapide: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
+  numTile: { width: '18%', aspectRatio: 1, backgroundColor: '#fff', margin: '1%', justifyContent: 'center', alignItems: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#ddd' },
+  numTileActive: { backgroundColor: '#1B4D6E', borderColor: '#1B4D6E' },
+  numTileText: { fontSize: 16, fontWeight: 'bold' },
+  modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
+  btnCancel: { padding: 15, flex: 1, alignItems: 'center' },
+  btnSave: { padding: 15, flex: 2, backgroundColor: '#1B4D6E', borderRadius: 10, alignItems: 'center' },
 });
